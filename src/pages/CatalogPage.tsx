@@ -10,23 +10,28 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Grid,
   IconButton,
   Skeleton,
   Slider,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import ProductCard from "../components/ProductCard";
 import { fetchProducts, productsQueryKey } from "../lib/productsApi";
 import {
   formatPriceBs,
+  getFinalPrice,
   getOriginalPrice,
   PRODUCT_CATEGORIES,
   type Product,
@@ -37,6 +42,8 @@ const defaultSizeRange: [number, number] = [0, 12];
 const defaultLengthRange: [number, number] = [10, 80];
 
 function CatalogPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof PRODUCT_CATEGORIES)[number]>("Todos");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -86,21 +93,65 @@ function CatalogPage() {
   const selectedOriginalPrice = selectedProduct
     ? getOriginalPrice(selectedProduct)
     : null;
+  const selectedFinalPrice = selectedProduct ? getFinalPrice(selectedProduct) : 0;
   const whatsappUrl = selectedProduct
     ? `https://wa.me/${normalizedWhatsappNumber}?text=${encodeURIComponent(
-        `Hola, me interesa este producto para mi perrito:\n\n${selectedProduct.name}\nCategoria: ${selectedProduct.category}\nPrecio: ${formatPriceBs(selectedProduct.price)}\nTalla: ${selectedProduct.size}\nLargo: ${selectedProduct.lengthCm} cm`,
+        `Hola, me interesa este producto para mi perrito:\n\n${selectedProduct.name}\nCategoria: ${selectedProduct.category}\nPrecio: ${formatPriceBs(selectedFinalPrice)}\nTalla: ${selectedProduct.size}\nLargo: ${selectedProduct.lengthCm} cm\nFoto: ${selectedProduct.imageUrl}`,
       )}`
     : "";
 
   return (
-    <Box sx={{ py: { xs: 3, md: 5 } }}>
-      <Container maxWidth="lg">
-        <Grid container spacing={3.5} sx={{ alignItems: "flex-start" }}>
+    <Box sx={{ py: { xs: 2.5, md: 5 } }}>
+      <Container maxWidth="lg" sx={{ px: { xs: 1.5, sm: 3 } }}>
+        <Grid container spacing={{ xs: 2.5, md: 3.5 }} sx={{ alignItems: "flex-start" }}>
           <Grid size={{ xs: 12, md: 2.5 }}>
-            <Box sx={{ position: { md: "sticky" }, top: 86 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 2 }}>
-                Filter Options
-              </Typography>
+            <Box
+              sx={{
+                position: { md: "sticky" },
+                top: 86,
+                p: { xs: 2, md: 0 },
+                border: { xs: "1px solid #eef2f7", md: 0 },
+                borderRadius: { xs: 2, md: 0 },
+                boxShadow: {
+                  xs: "0 10px 24px rgba(15, 23, 42, 0.05)",
+                  md: "none",
+                },
+              }}
+            >
+              <Accordion
+                defaultExpanded={!isMobile}
+                disableGutters
+                elevation={0}
+                sx={{
+                  bgcolor: "transparent",
+                  "&:before": { display: "none" },
+                }}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreRoundedIcon />}
+                  sx={{
+                    display: { xs: "flex", md: "none" },
+                    minHeight: 0,
+                    px: 0,
+                    py: 0,
+                    "& .MuiAccordionSummary-content": { my: 0 },
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
+                    Filtros
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ p: 0, pt: { xs: 2, md: 0 } }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      display: { xs: "none", md: "block" },
+                      fontWeight: 900,
+                      mb: 1.5,
+                    }}
+                  >
+                    Filter Options
+                  </Typography>
               <TextField
                 label="Buscar"
                 size="small"
@@ -115,7 +166,7 @@ function CatalogPage() {
                   },
                 }}
               />
-              <Divider sx={{ mb: 2 }} />
+              <Divider sx={{ my: 2 }} />
               <Typography
                 variant="caption"
                 color="text.secondary"
@@ -123,13 +174,22 @@ function CatalogPage() {
               >
                 CATEGORIAS
               </Typography>
-              <Stack spacing={0.75} sx={{ mt: 1.25 }}>
+              <Stack
+                direction={{ xs: "row", md: "column" }}
+                spacing={0.75}
+                sx={{
+                  mt: 1.25,
+                  overflowX: { xs: "auto", md: "visible" },
+                  pb: { xs: 0.5, md: 0 },
+                }}
+              >
                 {PRODUCT_CATEGORIES.map((category) => (
                   <Button
                     key={category}
                     size="small"
                     onClick={() => setSelectedCategory(category)}
                     sx={{
+                      minWidth: { xs: "max-content", md: 0 },
                       justifyContent: "flex-start",
                       color:
                         selectedCategory === category
@@ -218,6 +278,7 @@ function CatalogPage() {
 
               <Box
                 sx={{
+                  display: { xs: "none", md: "block" },
                   mt: 4,
                   p: 2.5,
                   borderRadius: 2,
@@ -236,6 +297,8 @@ function CatalogPage() {
                   Prendas y accesorios para consentir a tu peludito.
                 </Typography>
               </Box>
+                </AccordionDetails>
+              </Accordion>
             </Box>
           </Grid>
 
@@ -262,19 +325,6 @@ function CatalogPage() {
                 Closet
               </Typography>
             </Stack>
-
-            <Box sx={{ display: { xs: "block", md: "none" }, mb: 2 }}>
-              <Tabs
-                value={selectedCategory}
-                onChange={(_event, nextValue) => setSelectedCategory(nextValue)}
-                variant="scrollable"
-                scrollButtons="auto"
-              >
-                {PRODUCT_CATEGORIES.map((category) => (
-                  <Tab key={category} label={category} value={category} />
-                ))}
-              </Tabs>
-            </Box>
 
             {error ? (
               <Alert severity="error" sx={{ mb: 3 }}>
@@ -315,9 +365,17 @@ function CatalogPage() {
       <Dialog
         open={Boolean(selectedProduct)}
         onClose={() => setSelectedProduct(null)}
+        fullScreen={isMobile}
         fullWidth
         maxWidth="lg"
-        slotProps={{ paper: { sx: { borderRadius: 2 } } }}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: { xs: 0, sm: 2 },
+              m: { xs: 0, sm: 4 },
+            },
+          },
+        }}
       >
         {selectedProduct ? (
           <>
@@ -336,7 +394,7 @@ function CatalogPage() {
                 <CloseRoundedIcon />
               </IconButton>
             </DialogTitle>
-            <DialogContent sx={{ p: { xs: 2, md: 4 } }}>
+            <DialogContent sx={{ p: { xs: 1.5, sm: 2, md: 4 } }}>
               <Grid container spacing={{ xs: 3, md: 5 }}>
                 <Grid size={{ xs: 12, md: 6.5 }}>
                   <Box
@@ -355,7 +413,15 @@ function CatalogPage() {
                       sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   </Box>
-                  <Stack direction="row" spacing={1.25} sx={{ mt: 1.5 }}>
+                  <Stack
+                    direction="row"
+                    spacing={1.25}
+                    sx={{
+                      mt: 1.5,
+                      overflowX: "auto",
+                      pb: 0.5,
+                    }}
+                  >
                     {[0, 1, 2, 3].map((item) => (
                       <Box
                         key={item}
@@ -363,8 +429,9 @@ function CatalogPage() {
                         src={selectedProduct.imageUrl}
                         alt={selectedProduct.name}
                         sx={{
-                          width: 72,
-                          height: 72,
+                          width: { xs: 62, sm: 72 },
+                          height: { xs: 62, sm: 72 },
+                          flex: "0 0 auto",
                           objectFit: "cover",
                           borderRadius: 1.5,
                           border:
@@ -378,13 +445,13 @@ function CatalogPage() {
                 </Grid>
                 <Grid size={{ xs: 12, md: 5.5 }}>
                   <Stack
-                    spacing={4}
+                    spacing={{ xs: 2.25, md: 4 }}
                     sx={{ height: "100%", justifyContent: "center" }}
                   >
                     <Box>
                       <Typography
                         variant="h4"
-                        sx={{ mt: 1, fontSize: { xs: 30, md: 36 } }}
+                        sx={{ mt: 1, fontSize: { xs: 28, md: 36 }, lineHeight: 1.1 }}
                       >
                         {selectedProduct.name}
                       </Typography>
@@ -396,7 +463,7 @@ function CatalogPage() {
                       sx={{ alignItems: "baseline" }}
                     >
                       <Typography variant="h5" color="primary.main">
-                        {formatPriceBs(selectedProduct.price)}
+                        {formatPriceBs(selectedFinalPrice)}
                       </Typography>
                       {selectedOriginalPrice ? (
                         <Typography
@@ -428,7 +495,7 @@ function CatalogPage() {
                       >
                         Selecciona talla
                       </Typography>
-                      <Stack direction="row" spacing={1}>
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
                         <Chip
                           label={`Talla ${selectedProduct.size}`}
                           color="primary"

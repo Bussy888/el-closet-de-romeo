@@ -93,7 +93,15 @@ export function getOriginalPrice(product: Product) {
     return null;
   }
 
-  return product.price / (1 - product.discount / 100);
+  return product.price;
+}
+
+export function getFinalPrice(product: Product) {
+  if (!product.discount) {
+    return product.price;
+  }
+
+  return product.price * (1 - product.discount / 100);
 }
 
 export function formatPriceBs(value: number) {

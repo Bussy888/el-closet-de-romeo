@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, DragEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -23,6 +23,8 @@ import {
   Switch,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
@@ -35,6 +37,7 @@ import { fetchProducts, productsQueryKey } from "../lib/productsApi";
 import {
   emptyProductForm,
   formatPriceBs,
+  getFinalPrice,
   getOriginalPrice,
   PRODUCT_CATEGORIES,
   type Product,
@@ -65,6 +68,8 @@ function getStorageObjectFromUrl(imageUrl: string) {
 }
 
 function AdminDashboard({ session }: AdminDashboardProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const queryClient = useQueryClient();
   const {
     data: products = [],
@@ -78,6 +83,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const [formValues, setFormValues] =
     useState<ProductFormValues>(emptyProductForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -103,6 +109,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const resetForm = () => {
     setFormValues(emptyProductForm);
     setSelectedFile(null);
+    setIsDraggingImage(false);
     setErrors({});
   };
 
@@ -279,7 +286,8 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         talla: formValues.size,
         largo_cm: formValues.lengthCm,
         imagen_url: uploadedImage.publicUrl,
-        image_bucket: uploadedImage.bucket || existingStorageObject?.bucket || null,
+        image_bucket:
+          uploadedImage.bucket || existingStorageObject?.bucket || null,
         image_path: uploadedImage.path || existingStorageObject?.path || null,
         disponible: formValues.isAvailable,
         descuento: formValues.discount,
@@ -389,8 +397,28 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     {
       field: "price",
       headerName: "Precio",
-      width: 110,
-      valueFormatter: (value) => formatPriceBs(Number(value)),
+      width: 140,
+      renderCell: (params) => {
+        const finalPrice = getFinalPrice(params.row);
+        const originalPrice = getOriginalPrice(params.row);
+
+        return (
+          <Stack sx={{ mt: 0.6 }}>
+            <Typography variant="body2" sx={{ fontWeight: 800 }}>
+              {formatPriceBs(finalPrice)}
+            </Typography>
+            {originalPrice ? (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ textDecoration: "line-through" }}
+              >
+                {formatPriceBs(originalPrice)}
+              </Typography>
+            ) : null}
+          </Stack>
+        );
+      },
     },
     {
       field: "discount",
@@ -437,8 +465,41 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     },
   ];
 
+  const selectImageFile = (file?: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setErrors((current) => ({
+        ...current,
+        image: "Selecciona un archivo de imagen valido.",
+      }));
+      return;
+    }
+
+    setSelectedFile(file);
+    setErrors((current) => ({ ...current, image: undefined }));
+  };
+
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setSelectedFile(event.target.files?.[0] ?? null);
+    selectImageFile(event.target.files?.[0] ?? null);
+  };
+
+  const onImageDragOver = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDraggingImage(true);
+  };
+
+  const onImageDragLeave = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDraggingImage(false);
+  };
+
+  const onImageDrop = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDraggingImage(false);
+    selectImageFile(event.dataTransfer.files?.[0] ?? null);
   };
 
   const previewProduct: Product = {
@@ -457,6 +518,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     createdAt: new Date().toISOString(),
   };
   const previewOriginalPrice = getOriginalPrice(previewProduct);
+  const previewFinalPrice = getFinalPrice(previewProduct);
   const productsErrorMessage = productsError
     ? productsError instanceof Error
       ? productsError.message
@@ -464,18 +526,23 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     : "";
 
   return (
-    <Box sx={{ py: { xs: 4, md: 5 } }}>
-      <Container>
+    <Box sx={{ py: { xs: 2.5, md: 5 } }}>
+      <Container maxWidth="lg" sx={{ px: { xs: 1.5, sm: 3 } }}>
         <Stack
           direction={{ xs: "column", md: "row" }}
           spacing={2}
           sx={{ mb: 4, justifyContent: "space-between" }}
         >
           <Box>
-            <Typography variant="h4">Panel de administracion</Typography>
+            <Typography
+              variant="h4"
+              sx={{ fontSize: { xs: 28, sm: 34 }, lineHeight: 1.1 }}
+            >
+              Panel de administracion
+            </Typography>
             <Typography color="text.secondary">
-              Gestiona el catalogo, talla numerica, largo del lomo en cm y las
-              imagenes optimizadas en webp de los buckets de Rombi Closet.
+              Gestiona el catalogo, talla numerica, largo del lomo en cm y
+              descuentos.
             </Typography>
             {session?.user?.email ? (
               <Typography
@@ -539,6 +606,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
               <Box
                 sx={{
                   p: 3,
+                  minHeight: { xs: 112, md: "auto" },
                   borderRadius: 6,
                   bgcolor: metric.tone,
                   border: "1px solid rgba(148, 163, 184, 0.14)",
@@ -554,9 +622,10 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         <Box
           sx={{
             bgcolor: "background.paper",
-            borderRadius: 6,
-            p: 2,
+            borderRadius: { xs: 2, md: 6 },
+            p: { xs: 1, md: 2 },
             border: "1px solid rgba(148, 163, 184, 0.12)",
+            overflowX: "auto",
           }}
         >
           <DataGrid
@@ -571,6 +640,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             }}
             sx={{
               border: 0,
+              minWidth: 860,
               "& .MuiDataGrid-columnHeaders": {
                 backgroundColor: "#fff7ed",
               },
@@ -582,13 +652,14 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
+        fullScreen={isMobile}
         fullWidth
         maxWidth="md"
       >
         <DialogTitle>
           {formValues.id ? "Editar producto" : "Añadir Nuevo Producto"}
         </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
+        <DialogContent sx={{ pt: 2, px: { xs: 2, sm: 3 } }}>
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 7 }}>
               <FormControl fullWidth error={Boolean(errors.name)}>
@@ -756,21 +827,62 @@ function AdminDashboard({ session }: AdminDashboardProps) {
 
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth error={Boolean(errors.image)}>
-                <Button
+                <Box
                   component="label"
-                  variant="outlined"
-                  startIcon={<CloudUploadRoundedIcon />}
+                  onDragOver={onImageDragOver}
+                  onDragLeave={onImageDragLeave}
+                  onDrop={onImageDrop}
+                  sx={{
+                    minHeight: { xs: 56, md: 152 },
+                    px: 2,
+                    py: { xs: 1.5, md: 2.5 },
+                    display: "flex",
+                    flexDirection: { xs: "row", md: "column" },
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 1,
+                    textAlign: "center",
+                    cursor: "pointer",
+                    borderRadius: 3,
+                    border: "1.5px dashed",
+                    borderColor: errors.image
+                      ? "error.main"
+                      : isDraggingImage
+                        ? "primary.main"
+                        : "#cbd5e1",
+                    bgcolor: isDraggingImage ? "#fff7ed" : "#f8fafc",
+                    transition:
+                      "border-color 160ms ease, background 160ms ease",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      bgcolor: "#fff7ed",
+                    },
+                  }}
                 >
-                  {selectedFile
-                    ? selectedFile.name
-                    : "Subir imagen del producto"}
+                  <CloudUploadRoundedIcon color="primary" />
+                  <Box>
+                    <Typography sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                      {selectedFile
+                        ? selectedFile.name
+                        : isMobile
+                          ? "Subir imagen"
+                          : "Arrastra una imagen aqui"}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: { xs: "none", md: "block" }, mt: 0.5 }}
+                    >
+                      o haz click para seleccionarla desde tu equipo
+                    </Typography>
+                  </Box>
                   <input
                     hidden
                     type="file"
                     accept="image/*"
                     onChange={onFileChange}
                   />
-                </Button>
+                </Box>
                 <FormHelperText>
                   {errors.image ??
                     "La imagen se convierte a webp, se comprime antes del upload y luego se guarda su URL publica."}
@@ -809,12 +921,11 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                   ) : null}
                 </Stack>
                 <Typography sx={{ mt: 1.5 }}>
-                  Precio final: {formatPriceBs(previewProduct.price)}
+                  Precio final: {formatPriceBs(previewFinalPrice)}
                 </Typography>
                 {previewOriginalPrice ? (
                   <Typography variant="body2" color="text.secondary">
-                    Precio antes del descuento:{" "}
-                    {formatPriceBs(previewOriginalPrice)}
+                    Precio base: {formatPriceBs(previewOriginalPrice)}
                   </Typography>
                 ) : null}
               </Box>
@@ -837,7 +948,16 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             ) : null}
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
+        <DialogActions
+          sx={{
+            px: { xs: 2, sm: 3 },
+            pb: { xs: 2, sm: 3 },
+            flexDirection: { xs: "column-reverse", sm: "row" },
+            alignItems: "stretch",
+            gap: 1,
+            "& > :not(style) ~ :not(style)": { ml: { xs: 0, sm: 1 } },
+          }}
+        >
           <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
@@ -858,6 +978,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         }}
         fullWidth
         maxWidth="xs"
+        slotProps={{ paper: { sx: { m: { xs: 1.5, sm: 4 } } } }}
       >
         <DialogTitle>Eliminar producto</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
@@ -881,7 +1002,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                     {productToDelete.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {formatPriceBs(productToDelete.price)}
+                    {formatPriceBs(getFinalPrice(productToDelete))}
                   </Typography>
                 </Box>
               </Stack>
@@ -892,7 +1013,16 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             </Stack>
           ) : null}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
+        <DialogActions
+          sx={{
+            px: { xs: 2, sm: 3 },
+            pb: { xs: 2, sm: 3 },
+            flexDirection: { xs: "column-reverse", sm: "row" },
+            alignItems: "stretch",
+            gap: 1,
+            "& > :not(style) ~ :not(style)": { ml: { xs: 0, sm: 1 } },
+          }}
+        >
           <Button
             onClick={() => setProductToDelete(null)}
             disabled={deletingProduct}

@@ -11,6 +11,7 @@ import {
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import {
   formatPriceBs,
+  getFinalPrice,
   getOriginalPrice,
   type Product,
 } from "../types/product";
@@ -23,6 +24,7 @@ interface ProductCardProps {
 
 function ProductCard({ product, onView }: ProductCardProps) {
   const originalPrice = getOriginalPrice(product);
+  const finalPrice = getFinalPrice(product);
 
   return (
     <Card
@@ -38,10 +40,10 @@ function ProductCard({ product, onView }: ProductCardProps) {
       <Box sx={{ position: "relative", bgcolor: "#f8fafc" }}>
         <CardMedia
           component="img"
-          height="245"
           image={product.imageUrl}
           alt={product.name}
           sx={{
+            height: { xs: 280, sm: 245 },
             objectFit: "cover",
             filter: product.isAvailable ? "none" : "grayscale(0.35)",
           }}
@@ -90,7 +92,7 @@ function ProductCard({ product, onView }: ProductCardProps) {
             mb: 1,
           }}
         >
-          <Typography variant="h6" sx={{ fontSize: 18, lineHeight: 1.18 }}>
+          <Typography variant="h6" sx={{ fontSize: { xs: 19, sm: 18 }, lineHeight: 1.18 }}>
             {product.name}
           </Typography>
           <Typography
@@ -116,7 +118,7 @@ function ProductCard({ product, onView }: ProductCardProps) {
           sx={{ mt: 1.75, alignItems: "baseline" }}
         >
           <Typography variant="h6" color="primary.main" sx={{ fontSize: 18 }}>
-            {formatPriceBs(product.price)}
+            {formatPriceBs(finalPrice)}
           </Typography>
           {originalPrice ? (
             <Typography
