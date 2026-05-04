@@ -93,7 +93,9 @@ function CatalogPage() {
   const selectedOriginalPrice = selectedProduct
     ? getOriginalPrice(selectedProduct)
     : null;
-  const selectedFinalPrice = selectedProduct ? getFinalPrice(selectedProduct) : 0;
+  const selectedFinalPrice = selectedProduct
+    ? getFinalPrice(selectedProduct)
+    : 0;
   const whatsappUrl = selectedProduct
     ? `https://wa.me/${normalizedWhatsappNumber}?text=${encodeURIComponent(
         `Hola, me interesa este producto para mi perrito:\n\n${selectedProduct.name}\nCategoria: ${selectedProduct.category}\nPrecio: ${formatPriceBs(selectedFinalPrice)}\nTalla: ${selectedProduct.size}\nLargo: ${selectedProduct.lengthCm} cm\nFoto: ${selectedProduct.imageUrl}`,
@@ -103,7 +105,11 @@ function CatalogPage() {
   return (
     <Box sx={{ py: { xs: 2.5, md: 5 } }}>
       <Container maxWidth="lg" sx={{ px: { xs: 1.5, sm: 3 } }}>
-        <Grid container spacing={{ xs: 2.5, md: 3.5 }} sx={{ alignItems: "flex-start" }}>
+        <Grid
+          container
+          spacing={{ xs: 2.5, md: 3.5 }}
+          sx={{ alignItems: "flex-start" }}
+        >
           <Grid size={{ xs: 12, md: 2.5 }}>
             <Box
               sx={{
@@ -152,151 +158,154 @@ function CatalogPage() {
                   >
                     Filter Options
                   </Typography>
-              <TextField
-                label="Buscar"
-                size="small"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                fullWidth
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <SearchRoundedIcon fontSize="small" color="disabled" />
-                    ),
-                  },
-                }}
-              />
-              <Divider sx={{ my: 2 }} />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ fontWeight: 800 }}
-              >
-                CATEGORIAS
-              </Typography>
-              <Stack
-                direction={{ xs: "row", md: "column" }}
-                spacing={0.75}
-                sx={{
-                  mt: 1.25,
-                  overflowX: { xs: "auto", md: "visible" },
-                  pb: { xs: 0.5, md: 0 },
-                }}
-              >
-                {PRODUCT_CATEGORIES.map((category) => (
-                  <Button
-                    key={category}
+                  <TextField
+                    label="Buscar"
                     size="small"
-                    onClick={() => setSelectedCategory(category)}
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    fullWidth
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <SearchRoundedIcon
+                            fontSize="small"
+                            color="disabled"
+                          />
+                        ),
+                      },
+                    }}
+                  />
+                  <Divider sx={{ my: 2 }} />
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 800 }}
+                  >
+                    CATEGORIAS
+                  </Typography>
+                  <Stack
+                    direction={{ xs: "row", md: "column" }}
+                    spacing={0.75}
                     sx={{
-                      minWidth: { xs: "max-content", md: 0 },
-                      justifyContent: "flex-start",
-                      color:
-                        selectedCategory === category
-                          ? "primary.main"
-                          : "text.primary",
-                      bgcolor:
-                        selectedCategory === category
-                          ? "#fff7ed"
-                          : "transparent",
-                      fontWeight: selectedCategory === category ? 900 : 700,
+                      mt: 1.25,
+                      overflowX: { xs: "auto", md: "visible" },
+                      pb: { xs: 0.5, md: 0 },
                     }}
                   >
-                    {category}
+                    {PRODUCT_CATEGORIES.map((category) => (
+                      <Button
+                        key={category}
+                        size="small"
+                        onClick={() => setSelectedCategory(category)}
+                        sx={{
+                          minWidth: { xs: "max-content", md: 0 },
+                          justifyContent: "flex-start",
+                          color:
+                            selectedCategory === category
+                              ? "primary.main"
+                              : "text.primary",
+                          bgcolor:
+                            selectedCategory === category
+                              ? "#fff7ed"
+                              : "transparent",
+                          fontWeight: selectedCategory === category ? 900 : 700,
+                        }}
+                      >
+                        {category}
+                      </Button>
+                    ))}
+                  </Stack>
+
+                  <Divider sx={{ my: 2.5 }} />
+
+                  <Box sx={{ mt: 3 }}>
+                    <Stack
+                      direction="row"
+                      sx={{ justifyContent: "space-between", mb: 1 }}
+                    >
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ fontWeight: 800 }}
+                      >
+                        TALLA
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {sizeRange[0]} - {sizeRange[1]}
+                      </Typography>
+                    </Stack>
+                    <Slider
+                      value={sizeRange}
+                      min={0}
+                      max={12}
+                      step={1}
+                      marks
+                      valueLabelDisplay="auto"
+                      onChange={(_event, value) =>
+                        setSizeRange(value as [number, number])
+                      }
+                    />
+                  </Box>
+
+                  <Box sx={{ mt: 2.5 }}>
+                    <Stack
+                      direction="row"
+                      sx={{ justifyContent: "space-between", mb: 1 }}
+                    >
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ fontWeight: 800 }}
+                      >
+                        LOMO CM
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {lengthRange[0]} - {lengthRange[1]} cm
+                      </Typography>
+                    </Stack>
+                    <Slider
+                      value={lengthRange}
+                      min={10}
+                      max={80}
+                      step={1}
+                      valueLabelDisplay="auto"
+                      onChange={(_event, value) =>
+                        setLengthRange(value as [number, number])
+                      }
+                    />
+                  </Box>
+
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    onClick={resetFilters}
+                    sx={{ mt: 2 }}
+                  >
+                    Limpiar filtros
                   </Button>
-                ))}
-              </Stack>
 
-              <Divider sx={{ my: 2.5 }} />
-
-              <Box sx={{ mt: 3 }}>
-                <Stack
-                  direction="row"
-                  sx={{ justifyContent: "space-between", mb: 1 }}
-                >
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ fontWeight: 800 }}
+                  <Box
+                    sx={{
+                      display: { xs: "none", md: "block" },
+                      mt: 4,
+                      p: 2.5,
+                      borderRadius: 2,
+                      bgcolor: "#eef8ff",
+                      border: "1px solid #dff0fb",
+                    }}
                   >
-                    TALLA
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {sizeRange[0]} - {sizeRange[1]}
-                  </Typography>
-                </Stack>
-                <Slider
-                  value={sizeRange}
-                  min={0}
-                  max={12}
-                  step={1}
-                  marks
-                  valueLabelDisplay="auto"
-                  onChange={(_event, value) =>
-                    setSizeRange(value as [number, number])
-                  }
-                />
-              </Box>
-
-              <Box sx={{ mt: 2.5 }}>
-                <Stack
-                  direction="row"
-                  sx={{ justifyContent: "space-between", mb: 1 }}
-                >
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ fontWeight: 800 }}
-                  >
-                    LOMO CM
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {lengthRange[0]} - {lengthRange[1]} cm
-                  </Typography>
-                </Stack>
-                <Slider
-                  value={lengthRange}
-                  min={10}
-                  max={80}
-                  step={1}
-                  valueLabelDisplay="auto"
-                  onChange={(_event, value) =>
-                    setLengthRange(value as [number, number])
-                  }
-                />
-              </Box>
-
-              <Button
-                fullWidth
-                variant="outlined"
-                size="small"
-                onClick={resetFilters}
-                sx={{ mt: 2 }}
-              >
-                Limpiar filtros
-              </Button>
-
-              <Box
-                sx={{
-                  display: { xs: "none", md: "block" },
-                  mt: 4,
-                  p: 2.5,
-                  borderRadius: 2,
-                  bgcolor: "#eef8ff",
-                  border: "1px solid #dff0fb",
-                }}
-              >
-                <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
-                  Rombi Closet
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 0.75 }}
-                >
-                  Prendas y accesorios para consentir a tu peludito.
-                </Typography>
-              </Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
+                      Rombi Closet
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 0.75 }}
+                    >
+                      Prendas y accesorios para consentir a tu peludito.
+                    </Typography>
+                  </Box>
                 </AccordionDetails>
               </Accordion>
             </Box>
@@ -328,7 +337,9 @@ function CatalogPage() {
 
             {error ? (
               <Alert severity="error" sx={{ mb: 3 }}>
-                {error instanceof Error ? error.message : "No se pudo cargar el catalogo."}
+                {error instanceof Error
+                  ? error.message
+                  : "No se pudo cargar el catalogo."}
               </Alert>
             ) : null}
 
@@ -413,7 +424,7 @@ function CatalogPage() {
                       sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   </Box>
-                  <Stack
+                  {/* <Stack
                     direction="row"
                     spacing={1.25}
                     sx={{
@@ -441,7 +452,7 @@ function CatalogPage() {
                         }}
                       />
                     ))}
-                  </Stack>
+                  </Stack> */}
                 </Grid>
                 <Grid size={{ xs: 12, md: 5.5 }}>
                   <Stack
@@ -451,7 +462,11 @@ function CatalogPage() {
                     <Box>
                       <Typography
                         variant="h4"
-                        sx={{ mt: 1, fontSize: { xs: 28, md: 36 }, lineHeight: 1.1 }}
+                        sx={{
+                          mt: 1,
+                          fontSize: { xs: 28, md: 36 },
+                          lineHeight: 1.1,
+                        }}
                       >
                         {selectedProduct.name}
                       </Typography>
@@ -495,7 +510,11 @@ function CatalogPage() {
                       >
                         Selecciona talla
                       </Typography>
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ flexWrap: "wrap", rowGap: 1 }}
+                      >
                         <Chip
                           label={`Talla ${selectedProduct.size}`}
                           color="primary"
