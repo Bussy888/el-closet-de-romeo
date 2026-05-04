@@ -3,23 +3,34 @@ import type { ReactElement } from "react";
 import {
   Alert,
   AppBar,
+  Avatar,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
   Stack,
   TextField,
   ThemeProvider,
   Toolbar,
+  Typography,
   createTheme,
 } from "@mui/material";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import LoginRoundedIcon from "@mui/icons-material/LoginRounded";
+import MailOutlineRoundedIcon from "@mui/icons-material/MailOutlineRounded";
+import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
+import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import {
   BrowserRouter,
   Link as RouterLink,
@@ -34,6 +45,8 @@ import CatalogPage from "./pages/CatalogPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import { isSupabaseConfigured, supabase } from "./lib/supabaseClient";
 import logoUrl from "./assets/logo.png";
+
+const REMEMBERED_ADMIN_EMAIL_KEY = "rombi-admin-email";
 
 const theme = createTheme({
   palette: {
@@ -109,6 +122,8 @@ function AppShell() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberProfile, setRememberProfile] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [submittingLogin, setSubmittingLogin] = useState(false);
   const [authError, setAuthError] = useState("");
 
@@ -137,6 +152,17 @@ function AppShell() {
     };
   }, []);
 
+  useEffect(() => {
+    const rememberedEmail = window.localStorage.getItem(
+      REMEMBERED_ADMIN_EMAIL_KEY,
+    );
+
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberProfile(true);
+    }
+  }, []);
+
   const adminEnabled = useMemo(() => hasAdminAccess(session), [session]);
 
   const handleLogin = async () => {
@@ -148,7 +174,7 @@ function AppShell() {
     setSubmittingLogin(true);
     setAuthError("");
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     });
     setSubmittingLogin(false);
@@ -158,9 +184,26 @@ function AppShell() {
       return;
     }
 
+    if (rememberProfile) {
+      window.localStorage.setItem(REMEMBERED_ADMIN_EMAIL_KEY, email.trim());
+    } else {
+      window.localStorage.removeItem(REMEMBERED_ADMIN_EMAIL_KEY);
+    }
+
     setLoginOpen(false);
     setPassword("");
     navigate("/admin");
+  };
+
+  const closeLogin = () => {
+    if (submittingLogin) {
+      return;
+    }
+
+    setLoginOpen(false);
+    setAuthError("");
+    setPassword("");
+    setShowPassword(false);
   };
 
   const handleLogout = async () => {
@@ -284,36 +327,212 @@ function AppShell() {
 
         <Dialog
           open={loginOpen}
-          onClose={() => setLoginOpen(false)}
+          onClose={closeLogin}
           fullWidth
           maxWidth="xs"
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 3,
+                overflow: "hidden",
+                boxShadow: "0 24px 70px rgba(15, 23, 42, 0.22)",
+              },
+            },
+          }}
         >
-          <DialogTitle>Ingreso de administrador</DialogTitle>
-          <DialogContent sx={{ pt: 2 }}>
-            <Stack spacing={2}>
+          <DialogTitle sx={{ p: 0 }}>
+            <Box
+              sx={{
+                px: 3,
+                py: 2.5,
+                background:
+                  "linear-gradient(135deg, rgba(249,115,22,0.14), rgba(15,118,110,0.12))",
+              }}
+            >
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{ alignItems: "center" }}
+              >
+                <Avatar
+                  sx={{
+                    width: 42,
+                    height: 42,
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                  }}
+                >
+                  <LockRoundedIcon />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    Ingreso de administrador
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Accede al panel para gestionar el catálogo.
+                  </Typography>
+                </Box>
+              </Stack>
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ pt: 3 }}>
+            <Stack spacing={2.25} sx={{ pt: 3 }}>
+              {rememberProfile && email ? (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 1.5,
+                    p: 1.5,
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 2,
+                    bgcolor: "#f8fafc",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1.25}
+                    sx={{ alignItems: "center" }}
+                  >
+                    <Avatar
+                      sx={{
+                        width: 34,
+                        height: 34,
+                        bgcolor: "secondary.main",
+                        fontSize: 15,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {email.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ fontWeight: 800 }}
+                      >
+                        Perfil recordado
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        noWrap
+                      >
+                        {email}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      window.localStorage.removeItem(
+                        REMEMBERED_ADMIN_EMAIL_KEY,
+                      );
+                      setRememberProfile(false);
+                      setEmail("");
+                    }}
+                  >
+                    Cambiar
+                  </Button>
+                </Box>
+              ) : null}
               <TextField
                 label="Correo"
                 type="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setAuthError("");
+                }}
                 fullWidth
+                autoComplete="email"
+                autoFocus={!email}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MailOutlineRoundedIcon color="action" />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
               <TextField
                 label="Contraseña"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setAuthError("");
+                }}
                 fullWidth
+                autoComplete="current-password"
+                autoFocus={Boolean(email)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleLogin();
+                  }
+                }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockRoundedIcon color="action" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={
+                            showPassword
+                              ? "Ocultar contraseña"
+                              : "Mostrar contraseña"
+                          }
+                          edge="end"
+                          onClick={() => setShowPassword((current) => !current)}
+                        >
+                          {showPassword ? (
+                            <VisibilityOffRoundedIcon />
+                          ) : (
+                            <VisibilityRoundedIcon />
+                          )}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rememberProfile}
+                    onChange={(event) =>
+                      setRememberProfile(event.target.checked)
+                    }
+                  />
+                }
+                label="Recordar este perfil"
               />
               {authError ? <Alert severity="error">{authError}</Alert> : null}
             </Stack>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button onClick={() => setLoginOpen(false)}>Cancelar</Button>
+          <Divider />
+          <DialogActions sx={{ px: 3, py: 2.25 }}>
+            <Button onClick={closeLogin} disabled={submittingLogin}>
+              Cancelar
+            </Button>
             <Button
               variant="contained"
               onClick={handleLogin}
               disabled={submittingLogin}
+              startIcon={
+                submittingLogin ? (
+                  <CircularProgress color="inherit" size={16} />
+                ) : (
+                  <LoginRoundedIcon />
+                )
+              }
             >
               {submittingLogin ? "Ingresando..." : "Entrar"}
             </Button>

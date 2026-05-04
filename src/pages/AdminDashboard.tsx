@@ -659,8 +659,8 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         <DialogTitle>
           {formValues.id ? "Editar producto" : "Añadir Nuevo Producto"}
         </DialogTitle>
-        <DialogContent sx={{ pt: 2, px: { xs: 2, sm: 3 } }}>
-          <Grid container spacing={2.5}>
+        <DialogContent sx={{ pt: 3, px: { xs: 2, sm: 3 } }}>
+          <Grid container spacing={2.5} sx={{ pt: 1 }}>
             <Grid size={{ xs: 12, md: 7 }}>
               <FormControl fullWidth error={Boolean(errors.name)}>
                 <TextField
@@ -808,7 +808,15 @@ function AdminDashboard({ session }: AdminDashboardProps) {
               </FormControl>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid
+              size={{ xs: 12, md: 6 }}
+              sx={{
+                display: "flex",
+                alignContent: "center",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <FormControlLabel
                 control={
                   <Switch
@@ -821,7 +829,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                     }
                   />
                 }
-                label={formValues.isAvailable ? "Disponible" : "No disponible"}
+                label={formValues.isAvailable ? "Disponible" : "Vendido"}
               />
             </Grid>
 
