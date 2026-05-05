@@ -61,6 +61,7 @@ type FormErrors = Partial<
 >;
 
 const productImageBuckets = ["rombi-closet", "rombi-closet2"];
+const maxImagesPerProduct = 6;
 
 function getExistingImageKey(image: ProductImage) {
   return `existing:${image.url}`;
@@ -241,7 +242,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         nextImage.src = imageUrl;
       });
 
-      const maxWidth = 1200;
+      const maxWidth = 900;
       const scale = Math.min(1, maxWidth / image.width);
       const width = Math.max(1, Math.round(image.width * scale));
       const height = Math.max(1, Math.round(image.height * scale));
@@ -259,7 +260,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       context.drawImage(image, 0, 0, width, height);
 
       const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/webp", 0.78);
+        canvas.toBlob(resolve, "image/webp", 0.72);
       });
 
       if (!blob) {
@@ -595,6 +596,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
 
   const selectImageFiles = (files?: FileList | File[] | null) => {
     const nextFiles = Array.from(files ?? []);
+    const existingImageCount = formValues.existingImages?.length ?? 0;
 
     if (nextFiles.length === 0) {
       return;
@@ -604,6 +606,14 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       setErrors((current) => ({
         ...current,
         image: "Selecciona solamente archivos de imagen validos.",
+      }));
+      return;
+    }
+
+    if (existingImageCount + nextFiles.length > maxImagesPerProduct) {
+      setErrors((current) => ({
+        ...current,
+        image: `Puedes guardar maximo ${maxImagesPerProduct} imagenes por producto.`,
       }));
       return;
     }
@@ -1094,7 +1104,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                 </Box>
                 <FormHelperText>
                   {errors.image ??
-                    "Las imagenes se convierten a webp, se comprimen antes del upload y luego se guarda la galeria."}
+                    `Las imagenes se convierten a webp, se comprimen antes del upload y se limita a ${maxImagesPerProduct} fotos por producto.`}
                 </FormHelperText>
               </FormControl>
             </Grid>
@@ -1178,6 +1188,8 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                                   component="img"
                                   src={image.url}
                                   alt={`Foto existente ${index + 1}`}
+                                  loading="lazy"
+                                  decoding="async"
                                   sx={{
                                     width: 64,
                                     height: 64,
@@ -1239,6 +1251,8 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                                   component="img"
                                   src={selectedFilePreviewUrls[index]}
                                   alt={file.name}
+                                  loading="lazy"
+                                  decoding="async"
                                   sx={{
                                     width: 64,
                                     height: 64,

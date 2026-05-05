@@ -451,6 +451,7 @@ function CatalogPage() {
                       component="img"
                       src={selectedImage?.url ?? selectedProduct.imageUrl}
                       alt={selectedProduct.name}
+                      decoding="async"
                       sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                     {hasMultipleSelectedImages ? (
@@ -522,6 +523,8 @@ function CatalogPage() {
                             component="img"
                             src={image.url}
                             alt={`${selectedProduct.name} ${index + 1}`}
+                            loading="lazy"
+                            decoding="async"
                             sx={{
                               width: "100%",
                               height: "100%",

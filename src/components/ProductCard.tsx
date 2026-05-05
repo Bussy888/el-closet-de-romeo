@@ -42,6 +42,8 @@ function ProductCard({ product, onView }: ProductCardProps) {
           component="img"
           image={product.imageUrl}
           alt={product.name}
+          loading="lazy"
+          decoding="async"
           sx={{
             height: { xs: 280, sm: 245 },
             objectFit: "cover",
@@ -66,6 +68,8 @@ function ProductCard({ product, onView }: ProductCardProps) {
             component="img"
             src={soldStampUrl}
             alt="Vendido"
+            loading="lazy"
+            decoding="async"
             sx={{
               position: "absolute",
               top: "50%",
