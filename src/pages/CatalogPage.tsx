@@ -27,12 +27,15 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
+import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
 import ProductCard from "../components/ProductCard";
 import { fetchProducts, productsQueryKey } from "../lib/productsApi";
 import {
   formatPriceBs,
   getFinalPrice,
   getOriginalPrice,
+  getProductImages,
   PRODUCT_CATEGORIES,
   type Product,
 } from "../types/product";
@@ -47,6 +50,7 @@ function CatalogPage() {
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof PRODUCT_CATEGORIES)[number]>("Todos");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [sizeRange, setSizeRange] =
     useState<[number, number]>(defaultSizeRange);
@@ -89,6 +93,16 @@ function CatalogPage() {
     setLengthRange(defaultLengthRange);
   };
 
+  const openProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setSelectedImageIndex(0);
+  };
+
+  const closeProduct = () => {
+    setSelectedProduct(null);
+    setSelectedImageIndex(0);
+  };
+
   const normalizedWhatsappNumber = whatsappNumber.replace(/\D/g, "");
   const selectedOriginalPrice = selectedProduct
     ? getOriginalPrice(selectedProduct)
@@ -96,9 +110,25 @@ function CatalogPage() {
   const selectedFinalPrice = selectedProduct
     ? getFinalPrice(selectedProduct)
     : 0;
+  const selectedProductImages = selectedProduct
+    ? getProductImages(selectedProduct)
+    : [];
+  const selectedImage =
+    selectedProductImages[selectedImageIndex] ?? selectedProductImages[0];
+  const hasMultipleSelectedImages = selectedProductImages.length > 1;
+  const goToPreviousImage = () => {
+    setSelectedImageIndex((current) =>
+      current === 0 ? selectedProductImages.length - 1 : current - 1,
+    );
+  };
+  const goToNextImage = () => {
+    setSelectedImageIndex((current) =>
+      current === selectedProductImages.length - 1 ? 0 : current + 1,
+    );
+  };
   const whatsappUrl = selectedProduct
     ? `https://wa.me/${normalizedWhatsappNumber}?text=${encodeURIComponent(
-        `Hola, me interesa este producto para mi perrito:\n\n${selectedProduct.name}\nCategoria: ${selectedProduct.category}\nPrecio: ${formatPriceBs(selectedFinalPrice)}\nTalla: ${selectedProduct.size}\nLargo: ${selectedProduct.lengthCm} cm\nFoto: ${selectedProduct.imageUrl}`,
+        `Hola, me interesa este producto para mi perrito:\n\n${selectedProduct.name}\nCategoria: ${selectedProduct.category}\nPrecio: ${formatPriceBs(selectedFinalPrice)}\nTalla: ${selectedProduct.size}\nLargo: ${selectedProduct.lengthCm} cm\nFoto: ${selectedImage?.url ?? selectedProduct.imageUrl}`,
       )}`
     : "";
 
@@ -357,7 +387,7 @@ function CatalogPage() {
                   <Grid key={product.id} size={{ xs: 12, sm: 6, lg: 4 }}>
                     <ProductCard
                       product={product}
-                      onView={setSelectedProduct}
+                      onView={openProduct}
                     />
                   </Grid>
                 ))}
@@ -375,7 +405,7 @@ function CatalogPage() {
 
       <Dialog
         open={Boolean(selectedProduct)}
-        onClose={() => setSelectedProduct(null)}
+        onClose={closeProduct}
         fullScreen={isMobile}
         fullWidth
         maxWidth="lg"
@@ -393,7 +423,7 @@ function CatalogPage() {
             <DialogTitle sx={{ p: 0 }}>
               <IconButton
                 aria-label="Cerrar"
-                onClick={() => setSelectedProduct(null)}
+                onClick={closeProduct}
                 sx={{
                   position: "absolute",
                   right: 12,
@@ -419,40 +449,90 @@ function CatalogPage() {
                   >
                     <Box
                       component="img"
-                      src={selectedProduct.imageUrl}
+                      src={selectedImage?.url ?? selectedProduct.imageUrl}
                       alt={selectedProduct.name}
                       sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
+                    {hasMultipleSelectedImages ? (
+                      <>
+                        <IconButton
+                          aria-label="Foto anterior"
+                          onClick={goToPreviousImage}
+                          sx={{
+                            position: "absolute",
+                            left: 12,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            bgcolor: "rgba(255,255,255,0.9)",
+                            "&:hover": { bgcolor: "white" },
+                          }}
+                        >
+                          <ArrowBackIosNewRoundedIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          aria-label="Foto siguiente"
+                          onClick={goToNextImage}
+                          sx={{
+                            position: "absolute",
+                            right: 12,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            bgcolor: "rgba(255,255,255,0.9)",
+                            "&:hover": { bgcolor: "white" },
+                          }}
+                        >
+                          <ArrowForwardIosRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </>
+                    ) : null}
                   </Box>
-                  {/* <Stack
-                    direction="row"
-                    spacing={1.25}
-                    sx={{
-                      mt: 1.5,
-                      overflowX: "auto",
-                      pb: 0.5,
-                    }}
-                  >
-                    {[0, 1, 2, 3].map((item) => (
-                      <Box
-                        key={item}
-                        component="img"
-                        src={selectedProduct.imageUrl}
-                        alt={selectedProduct.name}
-                        sx={{
-                          width: { xs: 62, sm: 72 },
-                          height: { xs: 62, sm: 72 },
-                          flex: "0 0 auto",
-                          objectFit: "cover",
-                          borderRadius: 1.5,
-                          border:
-                            item === 0
-                              ? "2px solid #f97316"
-                              : "1px solid #e2e8f0",
-                        }}
-                      />
-                    ))}
-                  </Stack> */}
+                  {hasMultipleSelectedImages ? (
+                    <Stack
+                      direction="row"
+                      spacing={1.25}
+                      sx={{
+                        mt: 1.5,
+                        overflowX: "auto",
+                        pb: 0.5,
+                      }}
+                    >
+                      {selectedProductImages.map((image, index) => (
+                        <Box
+                          key={`${image.url}-${index}`}
+                          component="button"
+                          type="button"
+                          onClick={() => setSelectedImageIndex(index)}
+                          aria-label={`Ver foto ${index + 1}`}
+                          sx={{
+                            width: { xs: 62, sm: 72 },
+                            height: { xs: 62, sm: 72 },
+                            p: 0,
+                            flex: "0 0 auto",
+                            cursor: "pointer",
+                            overflow: "hidden",
+                            borderRadius: 1.5,
+                            border:
+                              index === selectedImageIndex
+                                ? "2px solid #f97316"
+                                : "1px solid #e2e8f0",
+                            bgcolor: "#f8fafc",
+                          }}
+                        >
+                          <Box
+                            component="img"
+                            src={image.url}
+                            alt={`${selectedProduct.name} ${index + 1}`}
+                            sx={{
+                              width: "100%",
+                              height: "100%",
+                              display: "block",
+                              objectFit: "cover",
+                            }}
+                          />
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : null}
                 </Grid>
                 <Grid size={{ xs: 12, md: 5.5 }}>
                   <Stack

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,10 +17,16 @@ import {
   Grid,
   InputLabel,
   MenuItem,
+  Radio,
   Select,
   Slider,
   Stack,
   Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
   useMediaQuery,
@@ -30,6 +36,7 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import CloudUploadRoundedIcon from "@mui/icons-material/CloudUploadRounded";
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import type { Session } from "@supabase/supabase-js";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { supabase } from "../lib/supabaseClient";
@@ -42,6 +49,7 @@ import {
   PRODUCT_CATEGORIES,
   type Product,
   type ProductFormValues,
+  type ProductImage,
 } from "../types/product";
 
 interface AdminDashboardProps {
@@ -53,6 +61,28 @@ type FormErrors = Partial<
 >;
 
 const productImageBuckets = ["rombi-closet", "rombi-closet2"];
+
+function getExistingImageKey(image: ProductImage) {
+  return `existing:${image.url}`;
+}
+
+function getSelectedFileKey(file: File) {
+  return `new:${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function orderImagesByPrimary(images: ProductImage[], primaryUrl: string) {
+  const primaryIndex = images.findIndex((image) => image.url === primaryUrl);
+
+  if (primaryIndex <= 0) {
+    return images;
+  }
+
+  return [
+    images[primaryIndex],
+    ...images.slice(0, primaryIndex),
+    ...images.slice(primaryIndex + 1),
+  ];
+}
 
 function getStorageObjectFromUrl(imageUrl: string) {
   const match = imageUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
@@ -82,7 +112,14 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formValues, setFormValues] =
     useState<ProductFormValues>(emptyProductForm);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFilePreviewUrls, setSelectedFilePreviewUrls] = useState<
+    string[]
+  >([]);
+  const [imagesPendingDeletion, setImagesPendingDeletion] = useState<
+    ProductImage[]
+  >([]);
+  const [primaryImageKey, setPrimaryImageKey] = useState("");
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -108,7 +145,9 @@ function AdminDashboard({ session }: AdminDashboardProps) {
 
   const resetForm = () => {
     setFormValues(emptyProductForm);
-    setSelectedFile(null);
+    setSelectedFiles([]);
+    setImagesPendingDeletion([]);
+    setPrimaryImageKey("");
     setIsDraggingImage(false);
     setErrors({});
   };
@@ -119,6 +158,19 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   };
 
   const handleEdit = (product: Product) => {
+    const existingImages =
+      product.images.length > 0
+        ? product.images
+        : product.imageUrl
+          ? [
+              {
+                url: product.imageUrl,
+                bucket: product.imageBucket,
+                path: product.imagePath,
+              },
+            ]
+          : [];
+
     setFormValues({
       id: product.id,
       name: product.name,
@@ -130,11 +182,25 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       lengthCm: product.lengthCm,
       isAvailable: product.isAvailable,
       existingImageUrl: product.imageUrl,
+      existingImages,
     });
-    setSelectedFile(null);
+    setSelectedFiles([]);
+    setImagesPendingDeletion([]);
+    setPrimaryImageKey(
+      existingImages[0] ? getExistingImageKey(existingImages[0]) : "",
+    );
     setErrors({});
     setDialogOpen(true);
   };
+
+  useEffect(() => {
+    const previewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
+    setSelectedFilePreviewUrls(previewUrls);
+
+    return () => {
+      previewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl));
+    };
+  }, [selectedFiles]);
 
   const validateForm = () => {
     const nextErrors: FormErrors = {};
@@ -151,8 +217,12 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     if (!formValues.price || Number(formValues.price) <= 0) {
       nextErrors.price = "Ingresa un precio valido.";
     }
-    if (!formValues.id && !selectedFile) {
-      nextErrors.image = "Debes seleccionar una imagen.";
+    if (
+      !formValues.id &&
+      selectedFiles.length === 0 &&
+      !formValues.existingImages?.length
+    ) {
+      nextErrors.image = "Debes seleccionar al menos una imagen.";
     }
 
     setErrors(nextErrors);
@@ -203,66 +273,106 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     }
   };
 
-  const uploadImage = async () => {
-    if (!selectedFile) {
-      return {
-        bucket: "",
-        path: "",
-        publicUrl: formValues.existingImageUrl ?? "",
-      };
+  const uploadSelectedImages = async (): Promise<ProductImage[]> => {
+    if (selectedFiles.length === 0) {
+      return [];
     }
 
-    const optimizedFile = await optimizeImageToWebp(selectedFile);
-    const fileName = `${Date.now()}-${crypto.randomUUID()}.webp`;
-    let lastUploadError: Error | null = null;
+    const uploadedImages: ProductImage[] = [];
 
-    for (const bucketName of productImageBuckets) {
-      const { error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, optimizedFile, {
-          upsert: false,
-          contentType: "image/webp",
-        });
+    for (const selectedFile of selectedFiles) {
+      const optimizedFile = await optimizeImageToWebp(selectedFile);
+      const fileName = `${Date.now()}-${crypto.randomUUID()}.webp`;
+      let lastUploadError: Error | null = null;
 
-      if (!uploadError) {
-        const { data } = supabase.storage
+      for (const bucketName of productImageBuckets) {
+        const { error: uploadError } = await supabase.storage
           .from(bucketName)
-          .getPublicUrl(fileName);
-        return {
-          bucket: bucketName,
-          path: fileName,
-          publicUrl: data.publicUrl,
-        };
+          .upload(fileName, optimizedFile, {
+            upsert: false,
+            contentType: "image/webp",
+          });
+
+        if (!uploadError) {
+          const { data } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(fileName);
+          uploadedImages.push({
+            bucket: bucketName,
+            path: fileName,
+            url: data.publicUrl,
+          });
+          lastUploadError = null;
+          break;
+        }
+
+        lastUploadError = uploadError;
       }
 
-      lastUploadError = uploadError;
+      if (lastUploadError) {
+        throw lastUploadError;
+      }
     }
 
-    throw (
-      lastUploadError ??
-      new Error("No se pudo subir la imagen a ningun bucket disponible.")
-    );
+    return uploadedImages;
   };
 
-  const deleteProductImage = async (product: Product) => {
-    const storageObject =
-      product.imageBucket && product.imagePath
-        ? { bucket: product.imageBucket, path: product.imagePath }
-        : getStorageObjectFromUrl(product.imageUrl);
+  const deleteProductImages = async (product: Product) => {
+    const storageObjects = (
+      product.images.length > 0
+        ? product.images.map((image) =>
+            image.bucket && image.path
+              ? { bucket: image.bucket, path: image.path }
+              : getStorageObjectFromUrl(image.url),
+          )
+        : [
+            product.imageBucket && product.imagePath
+              ? { bucket: product.imageBucket, path: product.imagePath }
+              : getStorageObjectFromUrl(product.imageUrl),
+          ]
+    ).filter(
+      (storageObject): storageObject is { bucket: string; path: string } =>
+        Boolean(storageObject?.bucket && storageObject.path),
+    );
 
-    if (!storageObject) {
+    if (storageObjects.length === 0) {
       return false;
     }
 
-    const { error } = await supabase.storage
-      .from(storageObject.bucket)
-      .remove([storageObject.path]);
+    for (const storageObject of storageObjects) {
+      const { error } = await supabase.storage
+        .from(storageObject.bucket)
+        .remove([storageObject.path]);
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
     }
 
     return true;
+  };
+
+  const deleteImagesFromStorage = async (images: ProductImage[]) => {
+    const storageObjects = images
+      .map((image) =>
+        image.bucket && image.path
+          ? { bucket: image.bucket, path: image.path }
+          : getStorageObjectFromUrl(image.url),
+      )
+      .filter(
+        (storageObject): storageObject is { bucket: string; path: string } =>
+          Boolean(storageObject?.bucket && storageObject.path),
+      );
+
+    for (const storageObject of storageObjects) {
+      const { error } = await supabase.storage
+        .from(storageObject.bucket)
+        .remove([storageObject.path]);
+
+      if (error) {
+        throw error;
+      }
+    }
   };
 
   const handleSubmit = async () => {
@@ -274,7 +384,20 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     setStatusMessage(null);
 
     try {
-      const uploadedImage = await uploadImage();
+      const existingImages = formValues.existingImages ?? [];
+      const uploadedImages = await uploadSelectedImages();
+      const allImages = [...existingImages, ...uploadedImages];
+      const selectedFilePrimaryMatch = selectedFiles.find(
+        (file) => getSelectedFileKey(file) === primaryImageKey,
+      );
+      const selectedFilePrimaryIndex = selectedFilePrimaryMatch
+        ? selectedFiles.indexOf(selectedFilePrimaryMatch)
+        : -1;
+      const primaryUrl = primaryImageKey.startsWith("existing:")
+        ? primaryImageKey.replace(/^existing:/, "")
+        : uploadedImages[selectedFilePrimaryIndex]?.url ?? allImages[0]?.url ?? "";
+      const orderedImages = orderImagesByPrimary(allImages, primaryUrl);
+      const primaryImage = orderedImages[0];
       const existingStorageObject = getStorageObjectFromUrl(
         formValues.existingImageUrl ?? "",
       );
@@ -285,10 +408,11 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         categoria: formValues.category,
         talla: formValues.size,
         largo_cm: formValues.lengthCm,
-        imagen_url: uploadedImage.publicUrl,
+        imagen_url: primaryImage?.url ?? "",
         image_bucket:
-          uploadedImage.bucket || existingStorageObject?.bucket || null,
-        image_path: uploadedImage.path || existingStorageObject?.path || null,
+          primaryImage?.bucket || existingStorageObject?.bucket || null,
+        image_path: primaryImage?.path || existingStorageObject?.path || null,
+        imagenes: orderedImages,
         disponible: formValues.isAvailable,
         descuento: formValues.discount,
       };
@@ -301,6 +425,10 @@ function AdminDashboard({ session }: AdminDashboardProps) {
 
       if (error) {
         throw error;
+      }
+
+      if (imagesPendingDeletion.length > 0) {
+        await deleteImagesFromStorage(imagesPendingDeletion);
       }
 
       setStatusMessage({
@@ -332,7 +460,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     setStatusMessage(null);
 
     try {
-      const imageDeleted = await deleteProductImage(productToDelete);
+      const imageDeleted = await deleteProductImages(productToDelete);
       const { error } = await supabase
         .from("productos")
         .delete()
@@ -345,7 +473,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       setStatusMessage({
         type: "success",
         text: imageDeleted
-          ? "Producto e imagen eliminados correctamente."
+          ? "Producto e imagenes eliminados correctamente."
           : "Producto eliminado. No se encontro metadata de imagen para borrar.",
       });
       setProductToDelete(null);
@@ -465,25 +593,92 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     },
   ];
 
-  const selectImageFile = (file?: File | null) => {
-    if (!file) {
+  const selectImageFiles = (files?: FileList | File[] | null) => {
+    const nextFiles = Array.from(files ?? []);
+
+    if (nextFiles.length === 0) {
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
+    if (nextFiles.some((file) => !file.type.startsWith("image/"))) {
       setErrors((current) => ({
         ...current,
-        image: "Selecciona un archivo de imagen valido.",
+        image: "Selecciona solamente archivos de imagen validos.",
       }));
       return;
     }
 
-    setSelectedFile(file);
+    setSelectedFiles(nextFiles);
+    setPrimaryImageKey((current) =>
+      current.startsWith("existing:") ? current : getSelectedFileKey(nextFiles[0]),
+    );
     setErrors((current) => ({ ...current, image: undefined }));
   };
 
+  const getFirstAvailableImageKey = (
+    existingImages: ProductImage[],
+    nextSelectedFiles: File[],
+  ) => {
+    if (existingImages[0]) {
+      return getExistingImageKey(existingImages[0]);
+    }
+
+    if (nextSelectedFiles[0]) {
+      return getSelectedFileKey(nextSelectedFiles[0]);
+    }
+
+    return "";
+  };
+
+  const handleRemoveExistingImage = (imageToRemove: ProductImage) => {
+    setFormValues((current) => {
+      const existingImages = current.existingImages ?? [];
+      const nextExistingImages = existingImages.filter(
+        (image) => image.url !== imageToRemove.url,
+      );
+      const removedKey = getExistingImageKey(imageToRemove);
+
+      setPrimaryImageKey((currentPrimaryKey) =>
+        currentPrimaryKey === removedKey
+          ? getFirstAvailableImageKey(nextExistingImages, selectedFiles)
+          : currentPrimaryKey,
+      );
+
+      return {
+        ...current,
+        existingImages: nextExistingImages,
+        existingImageUrl: nextExistingImages[0]?.url ?? "",
+      };
+    });
+
+    setImagesPendingDeletion((current) =>
+      current.some((image) => image.url === imageToRemove.url)
+        ? current
+        : [...current, imageToRemove],
+    );
+  };
+
+  const handleRemoveSelectedFile = (fileIndex: number) => {
+    setSelectedFiles((current) => {
+      const removedFile = current[fileIndex];
+      const removedKey = removedFile
+        ? getSelectedFileKey(removedFile)
+        : "";
+      const nextSelectedFiles = current.filter((_, index) => index !== fileIndex);
+      const existingImages = formValues.existingImages ?? [];
+
+      setPrimaryImageKey((currentPrimaryKey) =>
+        currentPrimaryKey === removedKey
+          ? getFirstAvailableImageKey(existingImages, nextSelectedFiles)
+          : currentPrimaryKey,
+      );
+
+      return nextSelectedFiles;
+    });
+  };
+
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    selectImageFile(event.target.files?.[0] ?? null);
+    selectImageFiles(event.target.files);
   };
 
   const onImageDragOver = (event: DragEvent<HTMLLabelElement>) => {
@@ -499,7 +694,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const onImageDrop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     setIsDraggingImage(false);
-    selectImageFile(event.dataTransfer.files?.[0] ?? null);
+    selectImageFiles(event.dataTransfer.files);
   };
 
   const previewProduct: Product = {
@@ -514,6 +709,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     imageUrl: formValues.existingImageUrl ?? "",
     imageBucket: "",
     imagePath: "",
+    images: formValues.existingImages ?? [],
     isAvailable: formValues.isAvailable,
     createdAt: new Date().toISOString(),
   };
@@ -870,11 +1066,15 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                   <CloudUploadRoundedIcon color="primary" />
                   <Box>
                     <Typography sx={{ fontWeight: 900, lineHeight: 1.2 }}>
-                      {selectedFile
-                        ? selectedFile.name
+                      {selectedFiles.length > 0
+                        ? `${selectedFiles.length} imagen${
+                            selectedFiles.length === 1 ? "" : "es"
+                          } seleccionada${
+                            selectedFiles.length === 1 ? "" : "s"
+                          }`
                         : isMobile
-                          ? "Subir imagen"
-                          : "Arrastra una imagen aqui"}
+                          ? "Subir imagenes"
+                          : "Arrastra imagenes aqui"}
                     </Typography>
                     <Typography
                       variant="caption"
@@ -888,12 +1088,13 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                     hidden
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={onFileChange}
                   />
                 </Box>
                 <FormHelperText>
                   {errors.image ??
-                    "La imagen se convierte a webp, se comprime antes del upload y luego se guarda su URL publica."}
+                    "Las imagenes se convierten a webp, se comprimen antes del upload y luego se guarda la galeria."}
                 </FormHelperText>
               </FormControl>
             </Grid>
@@ -939,19 +1140,164 @@ function AdminDashboard({ session }: AdminDashboardProps) {
               </Box>
             </Grid>
 
-            {formValues.existingImageUrl && !selectedFile ? (
+            {(formValues.existingImages?.length || selectedFiles.length > 0) ? (
               <Grid size={12}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 1 }}>
+                  Galeria del producto
+                </Typography>
                 <Box
-                  component="img"
-                  src={formValues.existingImageUrl}
-                  alt="Vista previa"
                   sx={{
-                    width: 140,
-                    height: 140,
-                    objectFit: "cover",
-                    borderRadius: 4,
+                    overflowX: "auto",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 2,
                   }}
-                />
+                >
+                  <Table size="small" sx={{ minWidth: 620 }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Foto</TableCell>
+                        <TableCell>Origen</TableCell>
+                        <TableCell align="center">Principal</TableCell>
+                        <TableCell align="right">Accion</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(formValues.existingImages ?? []).map((image, index) => {
+                        const imageKey = getExistingImageKey(image);
+                        const isPrimary = imageKey === primaryImageKey;
+
+                        return (
+                          <TableRow key={`${image.url}-${index}`}>
+                            <TableCell>
+                              <Stack
+                                direction="row"
+                                spacing={1.25}
+                                sx={{ alignItems: "center" }}
+                              >
+                                <Box
+                                  component="img"
+                                  src={image.url}
+                                  alt={`Foto existente ${index + 1}`}
+                                  sx={{
+                                    width: 64,
+                                    height: 64,
+                                    objectFit: "cover",
+                                    borderRadius: 1.5,
+                                    bgcolor: "#f8fafc",
+                                  }}
+                                />
+                                {isPrimary ? (
+                                  <Chip
+                                    icon={<StarRoundedIcon />}
+                                    label="Principal"
+                                    size="small"
+                                    color="primary"
+                                  />
+                                ) : null}
+                              </Stack>
+                            </TableCell>
+                            <TableCell>Actual</TableCell>
+                            <TableCell align="center">
+                              <Radio
+                                checked={isPrimary}
+                                onChange={() => setPrimaryImageKey(imageKey)}
+                                slotProps={{
+                                  input: {
+                                    "aria-label": `Usar foto actual ${
+                                      index + 1
+                                    } como principal`,
+                                  },
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <Button
+                                size="small"
+                                color="error"
+                                startIcon={<DeleteOutlineRoundedIcon />}
+                                onClick={() => handleRemoveExistingImage(image)}
+                              >
+                                Borrar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {selectedFiles.map((file, index) => {
+                        const imageKey = getSelectedFileKey(file);
+                        const isPrimary = imageKey === primaryImageKey;
+
+                        return (
+                          <TableRow key={imageKey}>
+                            <TableCell>
+                              <Stack
+                                direction="row"
+                                spacing={1.25}
+                                sx={{ alignItems: "center" }}
+                              >
+                                <Box
+                                  component="img"
+                                  src={selectedFilePreviewUrls[index]}
+                                  alt={file.name}
+                                  sx={{
+                                    width: 64,
+                                    height: 64,
+                                    objectFit: "cover",
+                                    borderRadius: 1.5,
+                                    bgcolor: "#f8fafc",
+                                  }}
+                                />
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    maxWidth: 220,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {file.name}
+                                </Typography>
+                                {isPrimary ? (
+                                  <Chip
+                                    icon={<StarRoundedIcon />}
+                                    label="Principal"
+                                    size="small"
+                                    color="primary"
+                                  />
+                                ) : null}
+                              </Stack>
+                            </TableCell>
+                            <TableCell>Nueva</TableCell>
+                            <TableCell align="center">
+                              <Radio
+                                checked={isPrimary}
+                                onChange={() => setPrimaryImageKey(imageKey)}
+                                slotProps={{
+                                  input: {
+                                    "aria-label": `Usar foto nueva ${
+                                      index + 1
+                                    } como principal`,
+                                  },
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <Button
+                                size="small"
+                                color="error"
+                                startIcon={<DeleteOutlineRoundedIcon />}
+                                onClick={() => handleRemoveSelectedFile(index)}
+                              >
+                                Quitar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </Box>
               </Grid>
             ) : null}
           </Grid>

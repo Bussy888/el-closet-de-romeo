@@ -3,7 +3,8 @@ export type ProductCategory =
   | "Verano"
   | "Accesorios"
   | "Paseo"
-  | "Basicos";
+  | "Basicos"
+  | "Disfraces";
 
 export interface Product {
   id: string;
@@ -17,8 +18,15 @@ export interface Product {
   imageUrl: string;
   imageBucket: string;
   imagePath: string;
+  images: ProductImage[];
   isAvailable: boolean;
   createdAt: string;
+}
+
+export interface ProductImage {
+  url: string;
+  bucket: string;
+  path: string;
 }
 
 export interface ProductRow {
@@ -32,6 +40,7 @@ export interface ProductRow {
   imagen_url: string | null;
   image_bucket: string | null;
   image_path: string | null;
+  imagenes: unknown;
   disponible: boolean | null;
   descuento: number | null;
   created_at: string;
@@ -48,6 +57,7 @@ export interface ProductFormValues {
   lengthCm: number;
   isAvailable: boolean;
   existingImageUrl?: string;
+  existingImages?: ProductImage[];
 }
 
 export const PRODUCT_CATEGORIES: Array<"Todos" | ProductCategory> = [
@@ -57,6 +67,7 @@ export const PRODUCT_CATEGORIES: Array<"Todos" | ProductCategory> = [
   "Accesorios",
   "Paseo",
   "Basicos",
+  "Disfraces",
 ];
 
 export const emptyProductForm: ProductFormValues = {
@@ -70,7 +81,51 @@ export const emptyProductForm: ProductFormValues = {
   isAvailable: true,
 };
 
+function parseProductImages(row: ProductRow): ProductImage[] {
+  const parsedImages = Array.isArray(row.imagenes)
+    ? row.imagenes
+        .map((image) => {
+          if (!image || typeof image !== "object") {
+            return null;
+          }
+
+          const record = image as Partial<ProductImage>;
+          const url = typeof record.url === "string" ? record.url : "";
+
+          if (!url) {
+            return null;
+          }
+
+          return {
+            url,
+            bucket: typeof record.bucket === "string" ? record.bucket : "",
+            path: typeof record.path === "string" ? record.path : "",
+          };
+        })
+        .filter((image): image is ProductImage => Boolean(image))
+    : [];
+
+  if (parsedImages.length > 0) {
+    return parsedImages;
+  }
+
+  if (!row.imagen_url) {
+    return [];
+  }
+
+  return [
+    {
+      url: row.imagen_url,
+      bucket: row.image_bucket ?? "",
+      path: row.image_path ?? "",
+    },
+  ];
+}
+
 export function mapProductRow(row: ProductRow): Product {
+  const images = parseProductImages(row);
+  const primaryImage = images[0];
+
   return {
     id: row.id,
     name: row.nombre,
@@ -80,12 +135,25 @@ export function mapProductRow(row: ProductRow): Product {
     discount: row.descuento ?? 0,
     size: row.talla ?? 0,
     lengthCm: row.largo_cm ?? 20,
-    imageUrl: row.imagen_url ?? "",
-    imageBucket: row.image_bucket ?? "",
-    imagePath: row.image_path ?? "",
+    imageUrl: primaryImage?.url ?? row.imagen_url ?? "",
+    imageBucket: primaryImage?.bucket ?? row.image_bucket ?? "",
+    imagePath: primaryImage?.path ?? row.image_path ?? "",
+    images,
     isAvailable: row.disponible ?? true,
     createdAt: row.created_at,
   };
+}
+
+export function getProductImages(product: Product) {
+  return product.images.length > 0
+    ? product.images
+    : [
+        {
+          url: product.imageUrl,
+          bucket: product.imageBucket,
+          path: product.imagePath,
+        },
+      ].filter((image) => Boolean(image.url));
 }
 
 export function getOriginalPrice(product: Product) {
