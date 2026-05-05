@@ -29,6 +29,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
 import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
+import StraightenRoundedIcon from "@mui/icons-material/StraightenRounded";
 import ProductCard from "../components/ProductCard";
 import { fetchProducts, productsQueryKey } from "../lib/productsApi";
 import {
@@ -39,6 +40,7 @@ import {
   PRODUCT_CATEGORIES,
   type Product,
 } from "../types/product";
+import sizeGuideUrl from "../assets/tallas.jpeg";
 
 const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
 const defaultSizeRange: [number, number] = [0, 12];
@@ -51,6 +53,7 @@ function CatalogPage() {
     useState<(typeof PRODUCT_CATEGORIES)[number]>("Todos");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sizeRange, setSizeRange] =
     useState<[number, number]>(defaultSizeRange);
@@ -154,6 +157,16 @@ function CatalogPage() {
                 },
               }}
             >
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<StraightenRoundedIcon />}
+                onClick={() => setSizeGuideOpen(true)}
+                sx={{ display: { xs: "flex", md: "none" }, mb: 1.5 }}
+              >
+                Ver tabla de tallas
+              </Button>
               <Accordion
                 defaultExpanded={!isMobile}
                 disableGutters
@@ -275,6 +288,16 @@ function CatalogPage() {
                         setSizeRange(value as [number, number])
                       }
                     />
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                      startIcon={<StraightenRoundedIcon />}
+                      onClick={() => setSizeGuideOpen(true)}
+                      sx={{ display: { xs: "none", md: "flex" }, mt: 1 }}
+                    >
+                      Ver tabla de tallas
+                    </Button>
                   </Box>
 
                   <Box sx={{ mt: 2.5 }}>
@@ -385,10 +408,7 @@ function CatalogPage() {
               <Grid container spacing={3}>
                 {filteredProducts.map((product) => (
                   <Grid key={product.id} size={{ xs: 12, sm: 6, lg: 4 }}>
-                    <ProductCard
-                      product={product}
-                      onView={openProduct}
-                    />
+                    <ProductCard product={product} onView={openProduct} />
                   </Grid>
                 ))}
               </Grid>
@@ -435,7 +455,12 @@ function CatalogPage() {
                 <CloseRoundedIcon />
               </IconButton>
             </DialogTitle>
-            <DialogContent sx={{ p: { xs: 1.5, sm: 2, md: 4 } }}>
+            <DialogContent
+              sx={{
+                p: { xs: 1.5, sm: 2, md: 4 },
+                pb: { xs: 10, sm: 2, md: 4 },
+              }}
+            >
               <Grid container spacing={{ xs: 3, md: 5 }}>
                 <Grid size={{ xs: 12, md: 6.5 }}>
                   <Box
@@ -486,6 +511,21 @@ function CatalogPage() {
                         </IconButton>
                       </>
                     ) : null}
+                    <Chip
+                      label={selectedProduct.category}
+                      size="small"
+                      sx={{
+                        display: { xs: "inline-flex", sm: "none" },
+                        position: "absolute",
+                        right: 12,
+                        bottom: 12,
+                        bgcolor: "#f97316",
+                        color: "white",
+                        fontWeight: 900,
+                        borderRadius: 1,
+                        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.16)",
+                      }}
+                    />
                   </Box>
                   {hasMultipleSelectedImages ? (
                     <Stack
@@ -587,17 +627,38 @@ function CatalogPage() {
                     <Divider />
 
                     <Box>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ fontWeight: 900, mb: 1 }}
+                      <Box
+                        sx={{
+                          alignItems: "center",
+                          display: "flex",
+                          justifyContent: "center",
+                          mb: 2,
+                        }}
                       >
-                        Selecciona talla
-                      </Typography>
+                        <Button
+                          variant="text"
+                          size="small"
+                          startIcon={<StraightenRoundedIcon />}
+                          onClick={() => setSizeGuideOpen(true)}
+                          sx={{ mt: -1, px: 0 }}
+                        >
+                          Ver tabla de tallas
+                        </Button>
+                      </Box>
                       <Stack
                         direction="row"
-                        spacing={1}
+                        spacing={2}
                         sx={{ flexWrap: "wrap", rowGap: 1 }}
                       >
+                        <Chip
+                          label={selectedProduct.category}
+                          sx={{
+                            display: { xs: "none", sm: "inline-flex" },
+                            bgcolor: "#fff7ed",
+                            color: "primary.main",
+                            fontWeight: 900,
+                          }}
+                        />
                         <Chip
                           label={`Talla ${selectedProduct.size}`}
                           color="primary"
@@ -615,6 +676,18 @@ function CatalogPage() {
                       size="large"
                       startIcon={<WhatsAppIcon />}
                       disabled={!normalizedWhatsappNumber}
+                      sx={{
+                        position: { xs: "fixed", sm: "static" },
+                        left: { xs: 16, sm: "auto" },
+                        right: { xs: 16, sm: "auto" },
+                        bottom: { xs: 16, sm: "auto" },
+                        zIndex: { xs: 1301, sm: "auto" },
+                        minHeight: { xs: 52, sm: 0 },
+                        boxShadow: {
+                          xs: "0 14px 34px rgba(22, 163, 74, 0.28)",
+                          sm: "none",
+                        },
+                      }}
                       {...(normalizedWhatsappNumber
                         ? {
                             href: whatsappUrl,
@@ -644,6 +717,63 @@ function CatalogPage() {
             </DialogContent>
           </>
         ) : null}
+      </Dialog>
+
+      <Dialog
+        open={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        fullScreen={isMobile}
+        fullWidth
+        maxWidth="sm"
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: { xs: 0, sm: 2 },
+              overflow: "hidden",
+              bgcolor: "transparent",
+              boxShadow: "none",
+            },
+          },
+        }}
+      >
+        <DialogContent
+          sx={{
+            p: 0,
+            position: "relative",
+            bgcolor: "transparent",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <IconButton
+            aria-label="Cerrar tabla de tallas"
+            onClick={() => setSizeGuideOpen(false)}
+            sx={{
+              position: "absolute",
+              right: { xs: 8, sm: 10 },
+              top: { xs: 8, sm: 10 },
+              zIndex: 2,
+              bgcolor: "rgba(255,255,255,0.92)",
+              "&:hover": { bgcolor: "white" },
+            }}
+          >
+            <CloseRoundedIcon />
+          </IconButton>
+          <Box
+            component="img"
+            src={sizeGuideUrl}
+            alt="Tabla de tallas Rombi Closet"
+            loading="lazy"
+            decoding="async"
+            sx={{
+              width: "100%",
+              maxWidth: 520,
+              maxHeight: { xs: "100vh", sm: "86vh" },
+              objectFit: "contain",
+              borderRadius: { xs: 0, sm: 2 },
+            }}
+          />
+        </DialogContent>
       </Dialog>
     </Box>
   );

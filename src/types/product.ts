@@ -4,7 +4,8 @@ export type ProductCategory =
   | "Accesorios"
   | "Paseo"
   | "Basicos"
-  | "Disfraces";
+  | "Disfraces"
+  | "Enterizo";
 
 export interface Product {
   id: string;
@@ -68,6 +69,7 @@ export const PRODUCT_CATEGORIES: Array<"Todos" | ProductCategory> = [
   "Paseo",
   "Basicos",
   "Disfraces",
+  "Enterizo",
 ];
 
 export const emptyProductForm: ProductFormValues = {
