@@ -57,7 +57,7 @@ interface AdminDashboardProps {
 }
 
 type FormErrors = Partial<
-  Record<"name" | "description" | "price" | "category" | "image", string>
+  Record<"name" | "price" | "category" | "image", string>
 >;
 
 const productImageBuckets = ["rombi-closet", "rombi-closet2"];
@@ -208,9 +208,6 @@ function AdminDashboard({ session }: AdminDashboardProps) {
 
     if (!formValues.name.trim()) {
       nextErrors.name = "El nombre es obligatorio.";
-    }
-    if (!formValues.description.trim()) {
-      nextErrors.description = "La descripcion es obligatoria.";
     }
     if (!formValues.category) {
       nextErrors.category = "Selecciona una categoria.";
@@ -404,7 +401,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       );
       const payload = {
         nombre: formValues.name.trim(),
-        descripcion: formValues.description.trim(),
+        descripcion: formValues.description.trim() || null,
         precio: Number(formValues.price),
         categoria: formValues.category,
         talla: formValues.size,
@@ -710,7 +707,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const previewProduct: Product = {
     id: formValues.id ?? "preview",
     name: formValues.name || "Nuevo articulo",
-    description: formValues.description || "Describe aqui la prenda.",
+    description: formValues.description,
     category: formValues.category,
     price: Number(formValues.price || 0),
     discount: formValues.discount,
@@ -997,9 +994,9 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             </Grid>
 
             <Grid size={12}>
-              <FormControl fullWidth error={Boolean(errors.description)}>
+              <FormControl fullWidth>
                 <TextField
-                  label="Descripcion"
+                  label="Descripcion (opcional)"
                   value={formValues.description}
                   onChange={(event) =>
                     setFormValues((current) => ({
@@ -1010,7 +1007,6 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                   minRows={4}
                   multiline
                 />
-                <FormHelperText>{errors.description}</FormHelperText>
               </FormControl>
             </Grid>
 

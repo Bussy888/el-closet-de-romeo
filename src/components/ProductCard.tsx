@@ -108,13 +108,15 @@ function ProductCard({ product, onView }: ProductCardProps) {
           </Typography>
         </Stack>
 
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ minHeight: 42 }}
-        >
-          {product.description}
-        </Typography>
+        {product.description.trim() ? (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ minHeight: 42 }}
+          >
+            {product.description}
+          </Typography>
+        ) : null}
 
         <Stack
           direction="row"

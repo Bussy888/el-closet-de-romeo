@@ -620,9 +620,11 @@ function CatalogPage() {
                       ) : null}
                     </Stack>
 
-                    <Typography color="text.secondary">
-                      {selectedProduct.description}
-                    </Typography>
+                    {selectedProduct.description.trim() ? (
+                      <Typography color="text.secondary">
+                        {selectedProduct.description}
+                      </Typography>
+                    ) : null}
 
                     <Divider />
 
