@@ -7,6 +7,20 @@ export type ProductCategory =
   | "Disfraces"
   | "Enterizo";
 
+export type ProductSize =
+  | "00"
+  | "0"
+  | "1"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "7"
+  | "8"
+  | "9"
+  | "10";
+
 export interface Product {
   id: string;
   name: string;
@@ -14,7 +28,7 @@ export interface Product {
   category: ProductCategory;
   price: number;
   discount: number;
-  size: number;
+  size: ProductSize;
   lengthCm: number;
   imageUrl: string;
   imageBucket: string;
@@ -36,7 +50,7 @@ export interface ProductRow {
   descripcion: string | null;
   precio: number;
   categoria: ProductCategory;
-  talla: number | null;
+  talla: string | number | null;
   largo_cm: number | null;
   imagen_url: string | null;
   image_bucket: string | null;
@@ -54,7 +68,7 @@ export interface ProductFormValues {
   category: ProductCategory;
   price: string;
   discount: number;
-  size: number;
+  size: ProductSize;
   lengthCm: number;
   isAvailable: boolean;
   existingImageUrl?: string;
@@ -72,16 +86,43 @@ export const PRODUCT_CATEGORIES: Array<"Todos" | ProductCategory> = [
   "Enterizo",
 ];
 
+export const PRODUCT_SIZES: ProductSize[] = [
+  "00",
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+];
+
 export const emptyProductForm: ProductFormValues = {
   name: "",
   description: "",
   category: "Invierno",
   price: "",
   discount: 0,
-  size: 0,
+  size: "00",
   lengthCm: 20,
   isAvailable: true,
 };
+
+export function normalizeProductSize(value: string | number | null): ProductSize {
+  const size = String(value ?? "00");
+
+  return PRODUCT_SIZES.includes(size as ProductSize)
+    ? (size as ProductSize)
+    : "00";
+}
+
+export function getProductSizeIndex(size: ProductSize) {
+  return PRODUCT_SIZES.indexOf(size);
+}
 
 function parseProductImages(row: ProductRow): ProductImage[] {
   const parsedImages = Array.isArray(row.imagenes)
@@ -135,7 +176,7 @@ export function mapProductRow(row: ProductRow): Product {
     category: row.categoria,
     price: row.precio,
     discount: row.descuento ?? 0,
-    size: row.talla ?? 0,
+    size: normalizeProductSize(row.talla),
     lengthCm: row.largo_cm ?? 20,
     imageUrl: primaryImage?.url ?? row.imagen_url ?? "",
     imageBucket: primaryImage?.bucket ?? row.image_bucket ?? "",

@@ -37,13 +37,15 @@ import {
   getFinalPrice,
   getOriginalPrice,
   getProductImages,
+  getProductSizeIndex,
   PRODUCT_CATEGORIES,
+  PRODUCT_SIZES,
   type Product,
 } from "../types/product";
 import sizeGuideUrl from "../assets/tallas.jpeg";
 
 const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
-const defaultSizeRange: [number, number] = [0, 12];
+const defaultSizeRange: [number, number] = [0, PRODUCT_SIZES.length - 1];
 const defaultLengthRange: [number, number] = [10, 80];
 
 function CatalogPage() {
@@ -79,8 +81,9 @@ function CatalogPage() {
         `${product.name} ${product.description} ${product.category}`
           .toLowerCase()
           .includes(normalizedSearchTerm);
+      const productSizeIndex = getProductSizeIndex(product.size);
       const matchesSize =
-        product.size >= sizeRange[0] && product.size <= sizeRange[1];
+        productSizeIndex >= sizeRange[0] && productSizeIndex <= sizeRange[1];
       const matchesLength =
         product.lengthCm >= lengthRange[0] &&
         product.lengthCm <= lengthRange[1];
@@ -274,16 +277,21 @@ function CatalogPage() {
                         TALLA
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {sizeRange[0]} - {sizeRange[1]}
+                        {PRODUCT_SIZES[sizeRange[0]]} -{" "}
+                        {PRODUCT_SIZES[sizeRange[1]]}
                       </Typography>
                     </Stack>
                     <Slider
                       value={sizeRange}
                       min={0}
-                      max={12}
+                      max={PRODUCT_SIZES.length - 1}
                       step={1}
-                      marks
+                      marks={PRODUCT_SIZES.map((size, index) => ({
+                        value: index,
+                        label: size,
+                      }))}
                       valueLabelDisplay="auto"
+                      valueLabelFormat={(value) => PRODUCT_SIZES[value]}
                       onChange={(_event, value) =>
                         setSizeRange(value as [number, number])
                       }

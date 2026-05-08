@@ -47,9 +47,11 @@ import {
   getFinalPrice,
   getOriginalPrice,
   PRODUCT_CATEGORIES,
+  PRODUCT_SIZES,
   type Product,
   type ProductFormValues,
   type ProductImage,
+  type ProductSize,
 } from "../types/product";
 
 interface AdminDashboardProps {
@@ -62,6 +64,10 @@ type FormErrors = Partial<
 
 const productImageBuckets = ["rombi-closet", "rombi-closet2"];
 const maxImagesPerProduct = 6;
+
+function clampLengthCm(value: number) {
+  return Math.max(10, Math.min(80, value || 10));
+}
 
 function getExistingImageKey(image: ProductImage) {
   return `existing:${image.url}`;
@@ -114,9 +120,6 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const [formValues, setFormValues] =
     useState<ProductFormValues>(emptyProductForm);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [selectedFilePreviewUrls, setSelectedFilePreviewUrls] = useState<
-    string[]
-  >([]);
   const [imagesPendingDeletion, setImagesPendingDeletion] = useState<
     ProductImage[]
   >([]);
@@ -194,14 +197,18 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     setDialogOpen(true);
   };
 
-  useEffect(() => {
-    const previewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
-    setSelectedFilePreviewUrls(previewUrls);
+  const selectedFilePreviewUrls = useMemo(
+    () => selectedFiles.map((file) => URL.createObjectURL(file)),
+    [selectedFiles],
+  );
 
+  useEffect(() => {
     return () => {
-      previewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl));
+      selectedFilePreviewUrls.forEach((previewUrl) =>
+        URL.revokeObjectURL(previewUrl),
+      );
     };
-  }, [selectedFiles]);
+  }, [selectedFilePreviewUrls]);
 
   const validateForm = () => {
     const nextErrors: FormErrors = {};
@@ -405,7 +412,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         precio: Number(formValues.price),
         categoria: formValues.category,
         talla: formValues.size,
-        largo_cm: formValues.lengthCm,
+        largo_cm: clampLengthCm(formValues.lengthCm),
         imagen_url: primaryImage?.url ?? "",
         image_bucket:
           primaryImage?.bucket || existingStorageObject?.bucket || null,
@@ -948,24 +955,25 @@ function AdminDashboard({ session }: AdminDashboardProps) {
 
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
-                <Typography gutterBottom>
-                  Talla numerica: {formValues.size}
-                </Typography>
-                <Slider
+                <InputLabel id="size-label">Talla</InputLabel>
+                <Select
+                  labelId="size-label"
+                  label="Talla"
                   value={formValues.size}
-                  min={0}
-                  max={12}
-                  step={1}
-                  marks
-                  valueLabelDisplay="auto"
-                  onChange={(_event, value) =>
+                  onChange={(event) =>
                     setFormValues((current) => ({
                       ...current,
-                      size: value as number,
+                      size: event.target.value as ProductSize,
                     }))
                   }
-                />
-                <FormHelperText>Rango de talla de 0 a 12.</FormHelperText>
+                >
+                  {PRODUCT_SIZES.map((size) => (
+                    <MenuItem key={size} value={size}>
+                      {size}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>Rango de talla de 00 a 10.</FormHelperText>
               </FormControl>
             </Grid>
 
@@ -974,21 +982,54 @@ function AdminDashboard({ session }: AdminDashboardProps) {
                 <Typography gutterBottom>
                   Largo del lomo: {formValues.lengthCm} cm
                 </Typography>
-                <Slider
-                  value={formValues.lengthCm}
-                  min={10}
-                  max={80}
-                  step={1}
-                  valueLabelDisplay="auto"
-                  onChange={(_event, value) =>
-                    setFormValues((current) => ({
-                      ...current,
-                      lengthCm: value as number,
-                    }))
-                  }
-                />
+                <Stack
+                  direction={{ xs: "column-reverse", sm: "row" }}
+                  spacing={1.5}
+                  sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+                >
+                  <Box sx={{ flex: 1, px: { xs: 0, sm: 1 } }}>
+                    <Slider
+                      value={clampLengthCm(formValues.lengthCm)}
+                      min={10}
+                      max={80}
+                      step={1}
+                      valueLabelDisplay="auto"
+                      onChange={(_event, value) =>
+                        setFormValues((current) => ({
+                          ...current,
+                          lengthCm: value as number,
+                        }))
+                      }
+                    />
+                  </Box>
+                  <TextField
+                    label="Escribir centimetros"
+                    type="number"
+                    value={formValues.lengthCm || ""}
+                    sx={{ width: { xs: "100%", sm: 190 } }}
+                    slotProps={{
+                      htmlInput: {
+                        min: 10,
+                        max: 80,
+                        step: 1,
+                      },
+                    }}
+                    onChange={(event) =>
+                      setFormValues((current) => ({
+                        ...current,
+                        lengthCm: Number(event.target.value),
+                      }))
+                    }
+                    onBlur={() =>
+                      setFormValues((current) => ({
+                        ...current,
+                        lengthCm: clampLengthCm(current.lengthCm),
+                      }))
+                    }
+                  />
+                </Stack>
                 <FormHelperText>
-                  Ajusta el largo del lomo en centimetros.
+                  Ajusta con el control o escribe un valor entre 10 y 80 cm.
                 </FormHelperText>
               </FormControl>
             </Grid>

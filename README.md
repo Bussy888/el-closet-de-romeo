@@ -99,7 +99,7 @@ create table if not exists public.productos (
   descripcion text,
   precio numeric not null,
   categoria text not null,
-  talla integer,
+  talla text check (talla in ('00','0','1','2','3','4','5','6','7','8','9','10')),
   largo_cm integer,
   imagen_url text,
   image_bucket text,
@@ -118,6 +118,17 @@ alter table public.productos
 add column if not exists image_bucket text,
 add column if not exists image_path text,
 add column if not exists sold_at timestamptz;
+```
+
+Para soportar la nueva talla `00`, cambia `talla` de `integer` a `text`:
+
+```sql
+alter table public.productos
+alter column talla type text using talla::text;
+
+alter table public.productos
+add constraint productos_talla_check
+check (talla in ('00','0','1','2','3','4','5','6','7','8','9','10'));
 ```
 
 Para rellenar `image_bucket` e `image_path` desde URLs publicas existentes:
