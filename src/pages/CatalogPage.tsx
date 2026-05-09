@@ -288,45 +288,25 @@ function CatalogPage() {
                     }}
                   />
                   <Divider sx={{ my: 2 }} />
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ fontWeight: 800 }}
-                  >
-                    CATEGORIAS
-                  </Typography>
-                  <Stack
-                    direction={{ xs: "row", md: "column" }}
-                    spacing={0.75}
-                    sx={{
-                      mt: 1.25,
-                      overflowX: { xs: "auto", md: "visible" },
-                      pb: { xs: 0.5, md: 0 },
-                    }}
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Categoria"
+                    value={selectedCategory}
+                    onChange={(event) =>
+                      setSelectedCategory(
+                        event.target
+                          .value as (typeof PRODUCT_CATEGORIES)[number],
+                      )
+                    }
                   >
                     {PRODUCT_CATEGORIES.map((category) => (
-                      <Button
-                        key={category}
-                        size="small"
-                        onClick={() => setSelectedCategory(category)}
-                        sx={{
-                          minWidth: { xs: "max-content", md: 0 },
-                          justifyContent: "flex-start",
-                          color:
-                            selectedCategory === category
-                              ? "primary.main"
-                              : "text.primary",
-                          bgcolor:
-                            selectedCategory === category
-                              ? "#fff7ed"
-                              : "transparent",
-                          fontWeight: selectedCategory === category ? 900 : 700,
-                        }}
-                      >
+                      <MenuItem key={category} value={category}>
                         {category}
-                      </Button>
+                      </MenuItem>
                     ))}
-                  </Stack>
+                  </TextField>
 
                   <Divider sx={{ my: 2.5 }} />
 
