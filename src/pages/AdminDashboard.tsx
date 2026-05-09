@@ -46,6 +46,7 @@ import {
   formatPriceBs,
   getFinalPrice,
   getOriginalPrice,
+  getProductSizeIndex,
   PRODUCT_CATEGORIES,
   PRODUCT_SIZES,
   type Product,
@@ -61,6 +62,14 @@ interface AdminDashboardProps {
 type FormErrors = Partial<
   Record<"name" | "price" | "category" | "image", string>
 >;
+type AdminSizeFilter = "Todas" | ProductSize;
+type AdminAvailabilityFilter = "Todos" | "available" | "sold";
+type AdminSortOption =
+  | "newest"
+  | "price-asc"
+  | "price-desc"
+  | "size-asc"
+  | "size-desc";
 
 const productImageBuckets = ["rombi-closet", "rombi-closet2"];
 const maxImagesPerProduct = 6;
@@ -129,6 +138,13 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const [submitting, setSubmitting] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState(false);
+  const [adminSizeFilter, setAdminSizeFilter] =
+    useState<AdminSizeFilter>("Todas");
+  const [adminAvailabilityFilter, setAdminAvailabilityFilter] =
+    useState<AdminAvailabilityFilter>("Todos");
+  const [adminMinPrice, setAdminMinPrice] = useState("");
+  const [adminMaxPrice, setAdminMaxPrice] = useState("");
+  const [adminSort, setAdminSort] = useState<AdminSortOption>("newest");
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -146,6 +162,74 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       { label: "No disponibles", value: unavailable, tone: "#fef2f2" },
     ];
   }, [products]);
+
+  const adminProducts = useMemo(() => {
+    const minPrice = adminMinPrice.trim() ? Number(adminMinPrice) : null;
+    const maxPrice = adminMaxPrice.trim() ? Number(adminMaxPrice) : null;
+
+    return products
+      .filter((product) => {
+        const finalPrice = getFinalPrice(product);
+        const matchesSize =
+          adminSizeFilter === "Todas" || product.size === adminSizeFilter;
+        const matchesAvailability =
+          adminAvailabilityFilter === "Todos" ||
+          (adminAvailabilityFilter === "available" && product.isAvailable) ||
+          (adminAvailabilityFilter === "sold" && !product.isAvailable);
+        const matchesMinPrice = minPrice === null || finalPrice >= minPrice;
+        const matchesMaxPrice = maxPrice === null || finalPrice <= maxPrice;
+
+        return (
+          matchesSize &&
+          matchesAvailability &&
+          matchesMinPrice &&
+          matchesMaxPrice
+        );
+      })
+      .sort((firstProduct, secondProduct) => {
+        if (adminSort === "price-asc") {
+          return getFinalPrice(firstProduct) - getFinalPrice(secondProduct);
+        }
+
+        if (adminSort === "price-desc") {
+          return getFinalPrice(secondProduct) - getFinalPrice(firstProduct);
+        }
+
+        if (adminSort === "size-asc") {
+          return (
+            getProductSizeIndex(firstProduct.size) -
+            getProductSizeIndex(secondProduct.size)
+          );
+        }
+
+        if (adminSort === "size-desc") {
+          return (
+            getProductSizeIndex(secondProduct.size) -
+            getProductSizeIndex(firstProduct.size)
+          );
+        }
+
+        return (
+          new Date(secondProduct.createdAt).getTime() -
+          new Date(firstProduct.createdAt).getTime()
+        );
+      });
+  }, [
+    adminAvailabilityFilter,
+    adminMaxPrice,
+    adminMinPrice,
+    adminSizeFilter,
+    adminSort,
+    products,
+  ]);
+
+  const clearAdminFilters = () => {
+    setAdminSizeFilter("Todas");
+    setAdminAvailabilityFilter("Todos");
+    setAdminMinPrice("");
+    setAdminMaxPrice("");
+    setAdminSort("newest");
+  };
 
   const resetForm = () => {
     setFormValues(emptyProductForm);
@@ -838,8 +922,99 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             overflowX: "auto",
           }}
         >
+          <Grid container spacing={1.5} sx={{ mb: 2, alignItems: "center" }}>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="admin-size-filter-label">Talla</InputLabel>
+                <Select
+                  labelId="admin-size-filter-label"
+                  label="Talla"
+                  value={adminSizeFilter}
+                  onChange={(event) =>
+                    setAdminSizeFilter(event.target.value as AdminSizeFilter)
+                  }
+                >
+                  <MenuItem value="Todas">Todas</MenuItem>
+                  {PRODUCT_SIZES.map((size) => (
+                    <MenuItem key={size} value={size}>
+                      {size}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6, md: 2.2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="admin-status-filter-label">Estado</InputLabel>
+                <Select
+                  labelId="admin-status-filter-label"
+                  label="Estado"
+                  value={adminAvailabilityFilter}
+                  onChange={(event) =>
+                    setAdminAvailabilityFilter(
+                      event.target.value as AdminAvailabilityFilter,
+                    )
+                  }
+                >
+                  <MenuItem value="Todos">Todos</MenuItem>
+                  <MenuItem value="available">Disponible</MenuItem>
+                  <MenuItem value="sold">Vendido</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 6, sm: 3, md: 1.7 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Precio min."
+                type="number"
+                value={adminMinPrice}
+                onChange={(event) => setAdminMinPrice(event.target.value)}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 6, sm: 3, md: 1.7 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Precio max."
+                type="number"
+                value={adminMaxPrice}
+                onChange={(event) => setAdminMaxPrice(event.target.value)}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="admin-sort-label">Ordenar</InputLabel>
+                <Select
+                  labelId="admin-sort-label"
+                  label="Ordenar"
+                  value={adminSort}
+                  onChange={(event) =>
+                    setAdminSort(event.target.value as AdminSortOption)
+                  }
+                >
+                  <MenuItem value="newest">Mas recientes</MenuItem>
+                  <MenuItem value="price-asc">Precio menor a mayor</MenuItem>
+                  <MenuItem value="price-desc">Precio mayor a menor</MenuItem>
+                  <MenuItem value="size-asc">Talla 00 a 10</MenuItem>
+                  <MenuItem value="size-desc">Talla 10 a 00</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+              <Button fullWidth variant="outlined" onClick={clearAdminFilters}>
+                Limpiar filtros
+              </Button>
+            </Grid>
+          </Grid>
+
           <DataGrid
-            rows={products}
+            rows={adminProducts}
             columns={columns}
             loading={loading}
             autoHeight

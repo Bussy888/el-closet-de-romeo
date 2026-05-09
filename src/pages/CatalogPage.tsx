@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -15,6 +15,8 @@ import {
   AccordionSummary,
   Grid,
   IconButton,
+  MenuItem,
+  Pagination,
   Skeleton,
   Slider,
   Stack,
@@ -47,6 +49,13 @@ import sizeGuideUrl from "../assets/tallas.jpeg";
 const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
 const defaultSizeRange: [number, number] = [0, PRODUCT_SIZES.length - 1];
 const defaultLengthRange: [number, number] = [10, 80];
+const productsPerPage = 12;
+type CatalogSortOption =
+  | "available"
+  | "price-asc"
+  | "price-desc"
+  | "size-asc"
+  | "size-desc";
 
 function CatalogPage() {
   const theme = useTheme();
@@ -61,6 +70,9 @@ function CatalogPage() {
     useState<[number, number]>(defaultSizeRange);
   const [lengthRange, setLengthRange] =
     useState<[number, number]>(defaultLengthRange);
+  const [sortOption, setSortOption] =
+    useState<CatalogSortOption>("available");
+  const [currentPage, setCurrentPage] = useState(1);
   const {
     data: products = [],
     isLoading: loading,
@@ -73,31 +85,85 @@ function CatalogPage() {
   const filteredProducts = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
-    return products.filter((product) => {
-      const matchesCategory =
-        selectedCategory === "Todos" || product.category === selectedCategory;
-      const matchesSearch =
-        !normalizedSearchTerm ||
-        `${product.name} ${product.description} ${product.category}`
-          .toLowerCase()
-          .includes(normalizedSearchTerm);
-      const productSizeIndex = getProductSizeIndex(product.size);
-      const matchesSize =
-        productSizeIndex >= sizeRange[0] && productSizeIndex <= sizeRange[1];
-      const matchesLength =
-        product.lengthCm >= lengthRange[0] &&
-        product.lengthCm <= lengthRange[1];
+    return products
+      .filter((product) => {
+        const matchesCategory =
+          selectedCategory === "Todos" || product.category === selectedCategory;
+        const matchesSearch =
+          !normalizedSearchTerm ||
+          `${product.name} ${product.description} ${product.category}`
+            .toLowerCase()
+            .includes(normalizedSearchTerm);
+        const productSizeIndex = getProductSizeIndex(product.size);
+        const matchesSize =
+          productSizeIndex >= sizeRange[0] && productSizeIndex <= sizeRange[1];
+        const matchesLength =
+          product.lengthCm >= lengthRange[0] &&
+          product.lengthCm <= lengthRange[1];
 
-      return matchesCategory && matchesSearch && matchesSize && matchesLength;
-    });
-  }, [lengthRange, products, searchTerm, selectedCategory, sizeRange]);
+        return matchesCategory && matchesSearch && matchesSize && matchesLength;
+      })
+      .sort((firstProduct, secondProduct) => {
+        if (firstProduct.isAvailable !== secondProduct.isAvailable) {
+          return firstProduct.isAvailable ? -1 : 1;
+        }
+
+        if (sortOption === "price-asc") {
+          return getFinalPrice(firstProduct) - getFinalPrice(secondProduct);
+        }
+
+        if (sortOption === "price-desc") {
+          return getFinalPrice(secondProduct) - getFinalPrice(firstProduct);
+        }
+
+        if (sortOption === "size-asc") {
+          return (
+            getProductSizeIndex(firstProduct.size) -
+            getProductSizeIndex(secondProduct.size)
+          );
+        }
+
+        if (sortOption === "size-desc") {
+          return (
+            getProductSizeIndex(secondProduct.size) -
+            getProductSizeIndex(firstProduct.size)
+          );
+        }
+
+        return (
+          new Date(secondProduct.createdAt).getTime() -
+          new Date(firstProduct.createdAt).getTime()
+        );
+      });
+  }, [
+    lengthRange,
+    products,
+    searchTerm,
+    selectedCategory,
+    sizeRange,
+    sortOption,
+  ]);
 
   const resetFilters = () => {
     setSelectedCategory("Todos");
     setSearchTerm("");
     setSizeRange(defaultSizeRange);
     setLengthRange(defaultLengthRange);
+    setSortOption("available");
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [lengthRange, searchTerm, selectedCategory, sizeRange, sortOption]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredProducts.length / productsPerPage),
+  );
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * productsPerPage,
+    currentPage * productsPerPage,
+  );
 
   const openProduct = (product: Product) => {
     setSelectedProduct(product);
@@ -264,6 +330,40 @@ function CatalogPage() {
 
                   <Divider sx={{ my: 2.5 }} />
 
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontWeight: 800 }}
+                    >
+                      ORDEN
+                    </Typography>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      value={sortOption}
+                      onChange={(event) =>
+                        setSortOption(event.target.value as CatalogSortOption)
+                      }
+                      sx={{ mt: 1.25 }}
+                    >
+                      <MenuItem value="available">
+                        Disponibles primero
+                      </MenuItem>
+                      <MenuItem value="price-asc">
+                        Precio menor a mayor
+                      </MenuItem>
+                      <MenuItem value="price-desc">
+                        Precio mayor a menor
+                      </MenuItem>
+                      <MenuItem value="size-asc">Talla 00 a 10</MenuItem>
+                      <MenuItem value="size-desc">Talla 10 a 00</MenuItem>
+                    </TextField>
+                  </Box>
+
+                  <Divider sx={{ my: 2.5 }} />
+
                   <Box sx={{ mt: 3 }}>
                     <Stack
                       direction="row"
@@ -414,13 +514,37 @@ function CatalogPage() {
               </Grid>
             ) : (
               <Grid container spacing={3}>
-                {filteredProducts.map((product) => (
+                {paginatedProducts.map((product) => (
                   <Grid key={product.id} size={{ xs: 12, sm: 6, lg: 4 }}>
                     <ProductCard product={product} onView={openProduct} />
                   </Grid>
                 ))}
               </Grid>
             )}
+
+            {!loading && filteredProducts.length > productsPerPage ? (
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                sx={{
+                  mt: 4,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Mostrando {(currentPage - 1) * productsPerPage + 1}-
+                  {Math.min(currentPage * productsPerPage, filteredProducts.length)}{" "}
+                  de {filteredProducts.length} productos
+                </Typography>
+                <Pagination
+                  count={totalPages}
+                  page={currentPage}
+                  color="primary"
+                  onChange={(_event, page) => setCurrentPage(page)}
+                />
+              </Stack>
+            ) : null}
 
             {!loading && filteredProducts.length === 0 ? (
               <Alert severity="info" sx={{ mt: 3 }}>
