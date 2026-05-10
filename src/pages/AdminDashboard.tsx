@@ -78,6 +78,51 @@ function clampLengthCm(value: number) {
   return Math.max(10, Math.min(80, value || 10));
 }
 
+function clampDiscount(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(90, value));
+}
+
+function roundToTwoDecimals(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function formatEditablePrice(value: number) {
+  return Number.isFinite(value) && value > 0
+    ? roundToTwoDecimals(value).toFixed(2)
+    : "";
+}
+
+function getDiscountedPrice(price: string, discount: number) {
+  const basePrice = Number(price);
+
+  if (!Number.isFinite(basePrice) || basePrice <= 0) {
+    return 0;
+  }
+
+  return basePrice * (1 - clampDiscount(discount) / 100);
+}
+
+function getDiscountFromFinalPrice(price: string, finalPrice: string) {
+  const basePrice = Number(price);
+  const nextFinalPrice = Number(finalPrice);
+
+  if (
+    !Number.isFinite(basePrice) ||
+    basePrice <= 0 ||
+    !Number.isFinite(nextFinalPrice)
+  ) {
+    return 0;
+  }
+
+  return roundToTwoDecimals(
+    clampDiscount((1 - nextFinalPrice / basePrice) * 100),
+  );
+}
+
 function getExistingImageKey(image: ProductImage) {
   return `existing:${image.url}`;
 }
@@ -128,6 +173,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formValues, setFormValues] =
     useState<ProductFormValues>(emptyProductForm);
+  const [discountedPrice, setDiscountedPrice] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [imagesPendingDeletion, setImagesPendingDeletion] = useState<
     ProductImage[]
@@ -233,6 +279,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
 
   const resetForm = () => {
     setFormValues(emptyProductForm);
+    setDiscountedPrice("");
     setSelectedFiles([]);
     setImagesPendingDeletion([]);
     setPrimaryImageKey("");
@@ -259,7 +306,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             ]
           : [];
 
-    setFormValues({
+    const nextFormValues = {
       id: product.id,
       name: product.name,
       description: product.description,
@@ -271,7 +318,14 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       isAvailable: product.isAvailable,
       existingImageUrl: product.imageUrl,
       existingImages,
-    });
+    };
+
+    setFormValues(nextFormValues);
+    setDiscountedPrice(
+      formatEditablePrice(
+        getDiscountedPrice(nextFormValues.price, nextFormValues.discount),
+      ),
+    );
     setSelectedFiles([]);
     setImagesPendingDeletion([]);
     setPrimaryImageKey(
@@ -279,6 +333,38 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     );
     setErrors({});
     setDialogOpen(true);
+  };
+
+  const handlePriceChange = (nextPrice: string) => {
+    setDiscountedPrice(
+      formatEditablePrice(getDiscountedPrice(nextPrice, formValues.discount)),
+    );
+    setFormValues((current) => ({
+      ...current,
+      price: nextPrice,
+    }));
+  };
+
+  const handleDiscountChange = (nextValue: string) => {
+    const nextDiscount = roundToTwoDecimals(
+      clampDiscount(Number(nextValue || 0)),
+    );
+
+    setDiscountedPrice(
+      formatEditablePrice(getDiscountedPrice(formValues.price, nextDiscount)),
+    );
+    setFormValues((current) => ({
+      ...current,
+      discount: nextDiscount,
+    }));
+  };
+
+  const handleDiscountedPriceChange = (nextFinalPrice: string) => {
+    setDiscountedPrice(nextFinalPrice);
+    setFormValues((current) => ({
+      ...current,
+      discount: getDiscountFromFinalPrice(current.price, nextFinalPrice),
+    }));
   };
 
   const selectedFilePreviewUrls = useMemo(
@@ -484,7 +570,9 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         : -1;
       const primaryUrl = primaryImageKey.startsWith("existing:")
         ? primaryImageKey.replace(/^existing:/, "")
-        : uploadedImages[selectedFilePrimaryIndex]?.url ?? allImages[0]?.url ?? "";
+        : (uploadedImages[selectedFilePrimaryIndex]?.url ??
+          allImages[0]?.url ??
+          "");
       const orderedImages = orderImagesByPrimary(allImages, primaryUrl);
       const primaryImage = orderedImages[0];
       const existingStorageObject = getStorageObjectFromUrl(
@@ -613,7 +701,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     },
     {
       field: "price",
-      headerName: "Precio",
+      headerName: "Precio (Bs.)",
       width: 140,
       renderCell: (params) => {
         const finalPrice = getFinalPrice(params.row);
@@ -708,7 +796,9 @@ function AdminDashboard({ session }: AdminDashboardProps) {
 
     setSelectedFiles(nextFiles);
     setPrimaryImageKey((current) =>
-      current.startsWith("existing:") ? current : getSelectedFileKey(nextFiles[0]),
+      current.startsWith("existing:")
+        ? current
+        : getSelectedFileKey(nextFiles[0]),
     );
     setErrors((current) => ({ ...current, image: undefined }));
   };
@@ -759,10 +849,10 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const handleRemoveSelectedFile = (fileIndex: number) => {
     setSelectedFiles((current) => {
       const removedFile = current[fileIndex];
-      const removedKey = removedFile
-        ? getSelectedFileKey(removedFile)
-        : "";
-      const nextSelectedFiles = current.filter((_, index) => index !== fileIndex);
+      const removedKey = removedFile ? getSelectedFileKey(removedFile) : "";
+      const nextSelectedFiles = current.filter(
+        (_, index) => index !== fileIndex,
+      );
       const existingImages = formValues.existingImages ?? [];
 
       setPrimaryImageKey((currentPrimaryKey) =>
@@ -1065,15 +1155,10 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             <Grid size={{ xs: 12, md: 5 }}>
               <FormControl fullWidth error={Boolean(errors.price)}>
                 <TextField
-                  label="Precio"
+                  label="Precio (Bs.)"
                   type="number"
                   value={formValues.price}
-                  onChange={(event) =>
-                    setFormValues((current) => ({
-                      ...current,
-                      price: event.target.value,
-                    }))
-                  }
+                  onChange={(event) => handlePriceChange(event.target.value)}
                 />
                 <FormHelperText>{errors.price}</FormHelperText>
               </FormControl>
@@ -1106,25 +1191,42 @@ function AdminDashboard({ session }: AdminDashboardProps) {
               </FormControl>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <FormControl fullWidth>
                 <TextField
                   label="Descuento (%)"
                   type="number"
                   value={formValues.discount}
-                  onChange={(event) =>
-                    setFormValues((current) => ({
-                      ...current,
-                      discount: Math.max(
-                        0,
-                        Math.min(90, Number(event.target.value || 0)),
-                      ),
-                    }))
-                  }
+                  onChange={(event) => handleDiscountChange(event.target.value)}
+                  slotProps={{
+                    htmlInput: {
+                      min: 0,
+                      max: 90,
+                      step: 0.01,
+                    },
+                  }}
                 />
-                <FormHelperText>
-                  Usa un porcentaje entero entre 0 y 90.
-                </FormHelperText>
+                <FormHelperText>Entre 0 y 90.</FormHelperText>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 6, md: 3 }}>
+              <FormControl fullWidth>
+                <TextField
+                  label="Precio con descuento (Bs.)"
+                  type="number"
+                  value={discountedPrice}
+                  onChange={(event) =>
+                    handleDiscountedPriceChange(event.target.value)
+                  }
+                  slotProps={{
+                    htmlInput: {
+                      min: 0,
+                      step: 0.01,
+                    },
+                  }}
+                />
+                <FormHelperText>Recalcula el descuento.</FormHelperText>
               </FormControl>
             </Grid>
 
@@ -1362,7 +1464,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
               </Box>
             </Grid>
 
-            {(formValues.existingImages?.length || selectedFiles.length > 0) ? (
+            {formValues.existingImages?.length || selectedFiles.length > 0 ? (
               <Grid size={12}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 1 }}>
                   Galeria del producto
