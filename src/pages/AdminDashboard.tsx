@@ -188,6 +188,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     useState<AdminSizeFilter>("Todas");
   const [adminAvailabilityFilter, setAdminAvailabilityFilter] =
     useState<AdminAvailabilityFilter>("Todos");
+  const [adminNameSearch, setAdminNameSearch] = useState("");
   const [adminMinPrice, setAdminMinPrice] = useState("");
   const [adminMaxPrice, setAdminMaxPrice] = useState("");
   const [adminSort, setAdminSort] = useState<AdminSortOption>("newest");
@@ -212,10 +213,14 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const adminProducts = useMemo(() => {
     const minPrice = adminMinPrice.trim() ? Number(adminMinPrice) : null;
     const maxPrice = adminMaxPrice.trim() ? Number(adminMaxPrice) : null;
+    const normalizedNameSearch = adminNameSearch.trim().toLowerCase();
 
     return products
       .filter((product) => {
         const finalPrice = getFinalPrice(product);
+        const matchesName =
+          !normalizedNameSearch ||
+          product.name.toLowerCase().includes(normalizedNameSearch);
         const matchesSize =
           adminSizeFilter === "Todas" || product.size === adminSizeFilter;
         const matchesAvailability =
@@ -226,6 +231,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
         const matchesMaxPrice = maxPrice === null || finalPrice <= maxPrice;
 
         return (
+          matchesName &&
           matchesSize &&
           matchesAvailability &&
           matchesMinPrice &&
@@ -264,6 +270,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     adminAvailabilityFilter,
     adminMaxPrice,
     adminMinPrice,
+    adminNameSearch,
     adminSizeFilter,
     adminSort,
     products,
@@ -272,6 +279,7 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const clearAdminFilters = () => {
     setAdminSizeFilter("Todas");
     setAdminAvailabilityFilter("Todos");
+    setAdminNameSearch("");
     setAdminMinPrice("");
     setAdminMaxPrice("");
     setAdminSort("newest");
@@ -773,6 +781,10 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const selectImageFiles = (files?: FileList | File[] | null) => {
     const nextFiles = Array.from(files ?? []);
     const existingImageCount = formValues.existingImages?.length ?? 0;
+    const selectedFileKeys = new Set(selectedFiles.map(getSelectedFileKey));
+    const uniqueNextFiles = nextFiles.filter(
+      (file) => !selectedFileKeys.has(getSelectedFileKey(file)),
+    );
 
     if (nextFiles.length === 0) {
       return;
@@ -786,7 +798,10 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       return;
     }
 
-    if (existingImageCount + nextFiles.length > maxImagesPerProduct) {
+    if (
+      existingImageCount + selectedFiles.length + uniqueNextFiles.length >
+      maxImagesPerProduct
+    ) {
       setErrors((current) => ({
         ...current,
         image: `Puedes guardar maximo ${maxImagesPerProduct} imagenes por producto.`,
@@ -794,11 +809,18 @@ function AdminDashboard({ session }: AdminDashboardProps) {
       return;
     }
 
-    setSelectedFiles(nextFiles);
+    if (uniqueNextFiles.length === 0) {
+      setErrors((current) => ({ ...current, image: undefined }));
+      return;
+    }
+
+    const nextSelectedFiles = [...selectedFiles, ...uniqueNextFiles];
+
+    setSelectedFiles(nextSelectedFiles);
     setPrimaryImageKey((current) =>
       current.startsWith("existing:")
         ? current
-        : getSelectedFileKey(nextFiles[0]),
+        : current || getSelectedFileKey(nextSelectedFiles[0]),
     );
     setErrors((current) => ({ ...current, image: undefined }));
   };
@@ -1012,6 +1034,18 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             overflowX: "auto",
           }}
         >
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Buscar producto"
+              placeholder="Nombre del producto"
+              value={adminNameSearch}
+              onChange={(event) => setAdminNameSearch(event.target.value)}
+              sx={{ maxWidth: { md: 420 } }}
+            />
+          </Box>
+
           <Grid container spacing={1.5} sx={{ mb: 2, alignItems: "center" }}>
             <Grid size={{ xs: 12, sm: 6, md: 2 }}>
               <FormControl fullWidth size="small">
