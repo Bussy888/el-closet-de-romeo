@@ -46,7 +46,8 @@ function ProductCard({ product, onView }: ProductCardProps) {
           decoding="async"
           sx={{
             height: { xs: 280, sm: 245 },
-            objectFit: "cover",
+            objectFit: "contain",
+            bgcolor: "#f8fafc",
             filter: product.isAvailable ? "none" : "grayscale(0.35)",
           }}
         />
@@ -87,24 +88,9 @@ function ProductCard({ product, onView }: ProductCardProps) {
       </Box>
 
       <CardContent sx={{ flexGrow: 1, px: 2.25, pb: 1.5 }}>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            mb: 1,
-          }}
-        >
+        <Stack spacing={1} sx={{ mb: 1 }}>
           <Typography variant="h6" sx={{ fontSize: { xs: 19, sm: 18 }, lineHeight: 1.18 }}>
             {product.name}
-          </Typography>
-          <Typography
-            variant="caption"
-            color="primary.main"
-            sx={{ fontWeight: 800 }}
-          >
-            {product.isAvailable ? "EN STOCK" : "VENDIDO"}
           </Typography>
         </Stack>
 
@@ -142,6 +128,13 @@ function ProductCard({ product, onView }: ProductCardProps) {
           spacing={1}
           sx={{ mt: 1.25, flexWrap: "wrap", rowGap: 1 }}
         >
+          <Chip
+            label={product.isAvailable ? "En stock" : "Vendido"}
+            size="small"
+            color={product.isAvailable ? "success" : "warning"}
+            variant={product.isAvailable ? "filled" : "outlined"}
+            sx={{ fontWeight: 800 }}
+          />
           <Chip label={`Talla ${product.size}`} size="small" />
           <Chip label={`${product.lengthCm} cm`} size="small" />
           {product.discount > 0 ? (
