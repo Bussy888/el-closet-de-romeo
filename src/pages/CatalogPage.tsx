@@ -70,8 +70,7 @@ function CatalogPage() {
     useState<[number, number]>(defaultSizeRange);
   const [lengthRange, setLengthRange] =
     useState<[number, number]>(defaultLengthRange);
-  const [sortOption, setSortOption] =
-    useState<CatalogSortOption>("available");
+  const [sortOption, setSortOption] = useState<CatalogSortOption>("available");
   const [currentPage, setCurrentPage] = useState(1);
   const {
     data: products = [],
@@ -328,9 +327,7 @@ function CatalogPage() {
                       }
                       sx={{ mt: 1.25 }}
                     >
-                      <MenuItem value="available">
-                        Disponibles primero
-                      </MenuItem>
+                      <MenuItem value="available">Disponibles primero</MenuItem>
                       <MenuItem value="price-asc">
                         Precio menor a mayor
                       </MenuItem>
@@ -437,7 +434,7 @@ function CatalogPage() {
                     }}
                   >
                     <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
-                      Rombi Closet
+                      El Closet de Romeo
                     </Typography>
                     <Typography
                       variant="body2"
@@ -514,7 +511,10 @@ function CatalogPage() {
               >
                 <Typography variant="body2" color="text.secondary">
                   Mostrando {(currentPage - 1) * productsPerPage + 1}-
-                  {Math.min(currentPage * productsPerPage, filteredProducts.length)}{" "}
+                  {Math.min(
+                    currentPage * productsPerPage,
+                    filteredProducts.length,
+                  )}{" "}
                   de {filteredProducts.length} productos
                 </Typography>
                 <Pagination
