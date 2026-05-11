@@ -17,6 +17,7 @@ import {
   Grid,
   InputLabel,
   MenuItem,
+  Pagination,
   Radio,
   Select,
   Slider,
@@ -192,10 +193,12 @@ function AdminDashboard({ session }: AdminDashboardProps) {
   const [adminMinPrice, setAdminMinPrice] = useState("");
   const [adminMaxPrice, setAdminMaxPrice] = useState("");
   const [adminSort, setAdminSort] = useState<AdminSortOption>("newest");
+  const [adminMobilePage, setAdminMobilePage] = useState(1);
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const adminMobilePageSize = 5;
 
   const metrics = useMemo(() => {
     const unavailable = products.filter(
@@ -274,6 +277,28 @@ function AdminDashboard({ session }: AdminDashboardProps) {
     adminSizeFilter,
     adminSort,
     products,
+  ]);
+
+  const adminMobileTotalPages = Math.max(
+    1,
+    Math.ceil(adminProducts.length / adminMobilePageSize),
+  );
+
+  const adminMobileProducts = useMemo(() => {
+    const startIndex = (adminMobilePage - 1) * adminMobilePageSize;
+
+    return adminProducts.slice(startIndex, startIndex + adminMobilePageSize);
+  }, [adminMobilePage, adminProducts]);
+
+  useEffect(() => {
+    setAdminMobilePage(1);
+  }, [
+    adminAvailabilityFilter,
+    adminMaxPrice,
+    adminMinPrice,
+    adminNameSearch,
+    adminSizeFilter,
+    adminSort,
   ]);
 
   const clearAdminFilters = () => {
@@ -1029,9 +1054,9 @@ function AdminDashboard({ session }: AdminDashboardProps) {
           sx={{
             bgcolor: "background.paper",
             borderRadius: { xs: 2, md: 6 },
-            p: { xs: 1, md: 2 },
+            p: { xs: 1.25, md: 2 },
             border: "1px solid rgba(148, 163, 184, 0.12)",
-            overflowX: "auto",
+            overflowX: { xs: "visible", md: "auto" },
           }}
         >
           <Box sx={{ mb: 2 }}>
@@ -1137,24 +1162,196 @@ function AdminDashboard({ session }: AdminDashboardProps) {
             </Grid>
           </Grid>
 
-          <DataGrid
-            rows={adminProducts}
-            columns={columns}
-            loading={loading}
-            autoHeight
-            disableRowSelectionOnClick
-            pageSizeOptions={[5, 10, 20]}
-            initialState={{
-              pagination: { paginationModel: { pageSize: 5, page: 0 } },
-            }}
-            sx={{
-              border: 0,
-              minWidth: 860,
-              "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: "#fff7ed",
-              },
-            }}
-          />
+          {isMobile ? (
+            <Stack spacing={1.25}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ px: 0.5, fontWeight: 700 }}
+              >
+                {loading
+                  ? "Cargando productos..."
+                  : `${adminProducts.length} producto${
+                      adminProducts.length === 1 ? "" : "s"
+                    }`}
+              </Typography>
+
+              {!loading && adminProducts.length === 0 ? (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    border: "1px dashed #cbd5e1",
+                    bgcolor: "#f8fafc",
+                  }}
+                >
+                  <Typography color="text.secondary">
+                    No hay productos con esos filtros.
+                  </Typography>
+                </Box>
+              ) : null}
+
+              {adminMobileProducts.map((product) => {
+                const finalPrice = getFinalPrice(product);
+                const originalPrice = getOriginalPrice(product);
+
+                return (
+                  <Box
+                    key={product.id}
+                    sx={{
+                      p: 1.25,
+                      borderRadius: 2,
+                      border: "1px solid #e2e8f0",
+                      bgcolor: "#ffffff",
+                      boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <Stack direction="row" spacing={1.25} sx={{ minWidth: 0 }}>
+                      <Box
+                        component="img"
+                        src={product.imageUrl}
+                        alt={product.name}
+                        loading="lazy"
+                        decoding="async"
+                        sx={{
+                          width: 84,
+                          height: 94,
+                          flex: "0 0 84px",
+                          objectFit: "cover",
+                          borderRadius: 1.5,
+                          bgcolor: "#f8fafc",
+                        }}
+                      />
+                      <Stack spacing={0.75} sx={{ minWidth: 0, flex: 1 }}>
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          sx={{
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            minWidth: 0,
+                          }}
+                        >
+                          <Typography
+                            variant="subtitle2"
+                            sx={{
+                              fontWeight: 900,
+                              lineHeight: 1.2,
+                              minWidth: 0,
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {product.name}
+                          </Typography>
+                          <Chip
+                            label={product.isAvailable ? "Disponible" : "No disp."}
+                            color={product.isAvailable ? "success" : "warning"}
+                            size="small"
+                            sx={{ flexShrink: 0 }}
+                          />
+                        </Stack>
+
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          useFlexGap
+                          sx={{ flexWrap: "wrap" }}
+                        >
+                          <Chip label={product.category} size="small" />
+                          <Chip label={`Talla ${product.size}`} size="small" />
+                          <Chip label={`${product.lengthCm} cm`} size="small" />
+                          {product.discount > 0 ? (
+                            <Chip
+                              label={`-${product.discount}%`}
+                              color="primary"
+                              size="small"
+                            />
+                          ) : null}
+                        </Stack>
+
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 900 }}>
+                            {formatPriceBs(finalPrice)}
+                          </Typography>
+                          {originalPrice ? (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ textDecoration: "line-through" }}
+                            >
+                              {formatPriceBs(originalPrice)}
+                            </Typography>
+                          ) : null}
+                        </Box>
+                      </Stack>
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
+                      <Button
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleEdit(product)}
+                        startIcon={<EditRoundedIcon />}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={() => setProductToDelete(product)}
+                        startIcon={<DeleteOutlineRoundedIcon />}
+                      >
+                        Borrar
+                      </Button>
+                    </Stack>
+                  </Box>
+                );
+              })}
+
+              {!loading && adminProducts.length > 0 ? (
+                <Stack
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    pt: 0.5,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Página {adminMobilePage} de {adminMobileTotalPages}
+                  </Typography>
+                  <Pagination
+                    count={adminMobileTotalPages}
+                    page={adminMobilePage}
+                    onChange={(_, nextPage) => setAdminMobilePage(nextPage)}
+                    size="small"
+                    color="primary"
+                  />
+                </Stack>
+              ) : null}
+            </Stack>
+          ) : (
+            <DataGrid
+              rows={adminProducts}
+              columns={columns}
+              loading={loading}
+              autoHeight
+              disableRowSelectionOnClick
+              pageSizeOptions={[5, 10, 20]}
+              initialState={{
+                pagination: { paginationModel: { pageSize: 5, page: 0 } },
+              }}
+              sx={{
+                border: 0,
+                minWidth: 860,
+                "& .MuiDataGrid-columnHeaders": {
+                  backgroundColor: "#fff7ed",
+                },
+              }}
+            />
+          )}
         </Box>
       </Container>
 
