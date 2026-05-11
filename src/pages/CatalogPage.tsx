@@ -64,6 +64,7 @@ function CatalogPage() {
     useState<(typeof PRODUCT_CATEGORIES)[number]>("Todos");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [productImageViewerOpen, setProductImageViewerOpen] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sizeRange, setSizeRange] =
@@ -172,6 +173,7 @@ function CatalogPage() {
   const closeProduct = () => {
     setSelectedProduct(null);
     setSelectedImageIndex(0);
+    setProductImageViewerOpen(false);
   };
 
   const normalizedWhatsappNumber = whatsappNumber.replace(/\D/g, "");
@@ -589,7 +591,13 @@ function CatalogPage() {
                       src={selectedImage?.url ?? selectedProduct.imageUrl}
                       alt={selectedProduct.name}
                       decoding="async"
-                      sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      onClick={() => setProductImageViewerOpen(true)}
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        cursor: "zoom-in",
+                        objectFit: "cover",
+                      }}
                     />
                     {hasMultipleSelectedImages ? (
                       <>
@@ -831,6 +839,65 @@ function CatalogPage() {
             </DialogContent>
           </>
         ) : null}
+      </Dialog>
+
+      <Dialog
+        open={Boolean(selectedProduct) && productImageViewerOpen}
+        onClose={() => setProductImageViewerOpen(false)}
+        fullScreen={isMobile}
+        fullWidth
+        maxWidth="lg"
+        slotProps={{
+          paper: {
+            sx: {
+              m: { xs: 0, sm: 2 },
+              borderRadius: { xs: 0, sm: 2 },
+              overflow: "hidden",
+              bgcolor: "#020617",
+            },
+          },
+        }}
+      >
+        <DialogContent
+          sx={{
+            p: 0,
+            position: "relative",
+            minHeight: { xs: "100dvh", sm: "80vh" },
+            display: "grid",
+            placeItems: "center",
+            bgcolor: "#020617",
+          }}
+        >
+          <IconButton
+            aria-label="Cerrar foto"
+            onClick={() => setProductImageViewerOpen(false)}
+            sx={{
+              position: "absolute",
+              right: { xs: 12, sm: 16 },
+              top: { xs: 12, sm: 16 },
+              zIndex: 2,
+              bgcolor: "rgba(255,255,255,0.92)",
+              "&:hover": { bgcolor: "white" },
+            }}
+          >
+            <CloseRoundedIcon />
+          </IconButton>
+
+          {selectedProduct ? (
+            <Box
+              component="img"
+              src={selectedImage?.url ?? selectedProduct.imageUrl}
+              alt={selectedProduct.name}
+              decoding="async"
+              sx={{
+                width: "100%",
+                height: "100%",
+                maxHeight: { xs: "100dvh", sm: "88vh" },
+                objectFit: "contain",
+              }}
+            />
+          ) : null}
+        </DialogContent>
       </Dialog>
 
       <Dialog
